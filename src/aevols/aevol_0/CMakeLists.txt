@@ -62,3 +62,13 @@ if ( USE_CUDA )
     # nvToolsExt for enhanced profiling (ad-hoc chunks)
     target_link_libraries(micro_aevol_gpu PUBLIC cuda_micro_aevol micro_aevol)
 endif ()
+
+# create a make clean rule for the project
+
+
+set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY ADDITIONAL_MAKE_CLEAN_FILES
+    ${CMAKE_CURRENT_BINARY_DIR}/CMakeCache.txt
+    ${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles
+    ${CMAKE_CURRENT_BINARY_DIR}/cmake_install.cmake
+    ${CMAKE_CURRENT_BINARY_DIR}/Makefile
+)
