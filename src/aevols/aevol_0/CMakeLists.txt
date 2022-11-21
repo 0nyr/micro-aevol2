@@ -6,6 +6,7 @@ set(TARGET "micro_aevol")
 list(APPEND CMAKE_MODULE_PATH "${KOKKOS_BUILD_DIR}")
 list(APPEND CMAKE_PREFIX_PATH "${KOKKOS_INSTALL_DIR}")
 list(APPEND CMAKE_PREFIX_PATH "${KOKKOS_INSTALL_DIR}/lib/CMake/Kokkos")
+list(APPEND CMAKE_PREFIX_PATH "${KOKKOS_INSTALL_DIR}/lib/cmake/Kokkos")
 
 set(DO_TRACES OFF CACHE BOOL "Whether to enable the Traces library")
 # set(USE_OMP OFF CACHE BOOL "Whether to enable OpenMP parallelization")
