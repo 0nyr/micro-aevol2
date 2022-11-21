@@ -3,10 +3,12 @@ project(pdc_mini_aevol)
 
 set(CMAKE_CXX_STANDARD 14)
 set(TARGET "micro_aevol")
-list(APPEND CMAKE_MODULE_PATH "${KOKKOS_BUILD_DIR}")
-list(APPEND CMAKE_PREFIX_PATH "${KOKKOS_INSTALL_DIR}")
-list(APPEND CMAKE_PREFIX_PATH "${KOKKOS_INSTALL_DIR}/lib/CMake/Kokkos")
-list(APPEND CMAKE_PREFIX_PATH "${KOKKOS_INSTALL_DIR}/lib/cmake/Kokkos")
+list(APPEND CMAKE_MODULE_PATH $ENV{KOKKOS_BUILD_DIR})
+list(APPEND CMAKE_PREFIX_PATH $ENV{KOKKOS_INSTALL_DIR}:)
+list(APPEND CMAKE_PREFIX_PATH $ENV{KOKKOS_INSTALL_DIR}/lib/CMake/Kokkos:)
+list(APPEND CMAKE_PREFIX_PATH $ENV{KOKKOS_INSTALL_DIR}/lib/cmake/Kokkos)
+
+message("CMAKE_PREFIX_PATH = " ${CMAKE_PREFIX_PATH})
 
 set(DO_TRACES OFF CACHE BOOL "Whether to enable the Traces library")
 # set(USE_OMP OFF CACHE BOOL "Whether to enable OpenMP parallelization")
@@ -43,21 +45,8 @@ find_package(Kokkos REQUIRED)
 
 
 
-# add_library(
-#     Abstract_ExpManager.cpp
-#     ExpManager.cpp
-#     AeTime.cpp
-#     DnaMutator.cpp
-#     MutationEvent.cpp
-#     Organism.cpp
-#     Stats.cpp
-#     Threefry.cpp
-#     Dna.cpp
-# )
-
-add_executable(${TARGET} main.cpp)
-target_include_directories(${TARGET} PUBLIC "${KOKKOS_INSTALL_DIR}/include")
-target_link_libraries(${TARGET} PUBLIC ZLIB::ZLIB Kokkos::kokkos
+add_library(
+    ${TARGET}
     Abstract_ExpManager.cpp
     ExpManager.cpp
     AeTime.cpp
@@ -68,6 +57,11 @@ target_link_libraries(${TARGET} PUBLIC ZLIB::ZLIB Kokkos::kokkos
     Threefry.cpp
     Dna.cpp
 )
+target_link_libraries(${TARGET} PUBLIC ZLIB::ZLIB Kokkos::kokkos)
+target_include_directories(${TARGET} PUBLIC "${KOKKOS_INSTALL_DIR}/include")
+
+
+add_executable(${TARGET}_kokkos main.cpp)
 
 
 # if ( OPENMP_FOUND )
