@@ -96,7 +96,7 @@ namespace time_tracer {
                            << "," << stamp_name[stamp_int[res][stamp]]
                            << "," << starts[res][stamp]
                            << "," << ends[res][stamp]
-                           << "," << ends[res][stamp] - starts[res][stamp]
+                           << "," << std::chrono::duration_cast<std::chrono::seconds>((std::chrono::duration<long>)(ends[res][stamp] - starts[res][stamp])).count()
                            << "," << indiv_id[res][stamp]
                            << std::endl;
             }
