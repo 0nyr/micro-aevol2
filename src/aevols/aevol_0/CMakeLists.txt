@@ -17,11 +17,6 @@ if ( DO_TRACES )
     message( STATUS "Traces are activated" )
 endif ( DO_TRACES )
 
-# add Kokkos
-find_package(Kokkos REQUIRED)
-target_link_libraries(${TARGET} Kokkos::kokkos)
-target_include_directories(${TARGET} PUBLIC "${KOKKOS_INSTALL_DIR}/include")
-
 # if ( USE_CUDA )
 #     # https://cliutils.gitlab.io/modern-cmake/chapters/packages/CUDA.html
 #     find_package(CUDA REQUIRED)
@@ -44,27 +39,44 @@ target_include_directories(${TARGET} PUBLIC "${KOKKOS_INSTALL_DIR}/include")
 # endif ( USE_OMP )
 
 find_package(ZLIB REQUIRED)
+find_package(Kokkos REQUIRED)
 
-add_library(${TARGET}
-        Abstract_ExpManager.cpp
-        ExpManager.cpp
-        AeTime.cpp
-        DnaMutator.cpp
-        MutationEvent.cpp
-        Organism.cpp
-        Stats.cpp
-        Threefry.cpp
-        Dna.cpp)
 
-target_link_libraries(${TARGET} PUBLIC ZLIB::ZLIB)
+
+# add_library(
+#     Abstract_ExpManager.cpp
+#     ExpManager.cpp
+#     AeTime.cpp
+#     DnaMutator.cpp
+#     MutationEvent.cpp
+#     Organism.cpp
+#     Stats.cpp
+#     Threefry.cpp
+#     Dna.cpp
+# )
+
+add_executable(${TARGET} main.cpp)
+target_include_directories(${TARGET} PUBLIC "${KOKKOS_INSTALL_DIR}/include")
+target_link_libraries(${TARGET} PUBLIC ZLIB::ZLIB Kokkos::kokkos
+    Abstract_ExpManager.cpp
+    ExpManager.cpp
+    AeTime.cpp
+    DnaMutator.cpp
+    MutationEvent.cpp
+    Organism.cpp
+    Stats.cpp
+    Threefry.cpp
+    Dna.cpp
+)
+
 
 # if ( OPENMP_FOUND )
 #     target_link_libraries(micro_aevol PUBLIC OpenMP::OpenMP_CXX)
 #     target_compile_definitions(micro_aevol PUBLIC USE_OMP)
 # endif ()
 
-add_executable(${TARGET}_cpu main.cpp)
-target_link_libraries(micro_aevol_cpu ${TARGET})
+# add_executable(${TARGET}_cpu main.cpp)
+# target_link_libraries(micro_aevol_cpu ${TARGET})
 
 # if ( USE_CUDA )
 #     add_subdirectory(cuda)
