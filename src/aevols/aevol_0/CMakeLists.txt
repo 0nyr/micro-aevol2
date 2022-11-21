@@ -2,8 +2,10 @@ cmake_minimum_required(VERSION 3.13)
 project(pdc_mini_aevol)
 
 set(CMAKE_CXX_STANDARD 14)
+set(TARGET "micro_aevol")
 list(APPEND CMAKE_MODULE_PATH "${KOKKOS_BUILD_DIR}")
 list(APPEND CMAKE_PREFIX_PATH "${KOKKOS_INSTALL_DIR}")
+list(APPEND CMAKE_PREFIX_PATH "${KOKKOS_INSTALL_DIR}/lib/CMake/Kokkos")
 
 set(DO_TRACES OFF CACHE BOOL "Whether to enable the Traces library")
 # set(USE_OMP OFF CACHE BOOL "Whether to enable OpenMP parallelization")
@@ -14,9 +16,10 @@ if ( DO_TRACES )
     message( STATUS "Traces are activated" )
 endif ( DO_TRACES )
 
-
+# add Kokkos
 find_package(Kokkos REQUIRED)
-target_link_libraries(micro_aevol Kokkos::kokkos)
+target_link_libraries(${TARGET} Kokkos::kokkos)
+target_include_directories(${TARGET} PUBLIC "${KOKKOS_INSTALL_DIR}/include")
 
 # if ( USE_CUDA )
 #     # https://cliutils.gitlab.io/modern-cmake/chapters/packages/CUDA.html
@@ -41,7 +44,7 @@ target_link_libraries(micro_aevol Kokkos::kokkos)
 
 find_package(ZLIB REQUIRED)
 
-add_library(micro_aevol
+add_library(${TARGET}
         Abstract_ExpManager.cpp
         ExpManager.cpp
         AeTime.cpp
@@ -52,15 +55,15 @@ add_library(micro_aevol
         Threefry.cpp
         Dna.cpp)
 
-target_link_libraries(micro_aevol PUBLIC ZLIB::ZLIB)
+target_link_libraries(${TARGET} PUBLIC ZLIB::ZLIB)
 
 # if ( OPENMP_FOUND )
 #     target_link_libraries(micro_aevol PUBLIC OpenMP::OpenMP_CXX)
 #     target_compile_definitions(micro_aevol PUBLIC USE_OMP)
 # endif ()
 
-add_executable(micro_aevol_cpu main.cpp)
-target_link_libraries(micro_aevol_cpu micro_aevol)
+add_executable(${TARGET}_cpu main.cpp)
+target_link_libraries(micro_aevol_cpu ${TARGET})
 
 # if ( USE_CUDA )
 #     add_subdirectory(cuda)

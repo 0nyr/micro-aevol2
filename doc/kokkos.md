@@ -17,7 +17,6 @@ export KOKKOS_INSTALL_DIR=${HOME}/Kokkos/kokkos_install
 
 Run `build_install_kokkos.sh`
 
-
 ## Cmake
 
 `CMAKE_PREFIX_PATH` works as a build directive, rather than as an environment variable. Moreover, you may perform the build into a dedicated temporary directory (it's cleaner, because when done, you can remove that temporary directory and you get back a clean pristine source tree). [StackOverflow](https://stackoverflow.com/questions/8019505/how-to-set-the-cmake-prefix-path)
@@ -27,3 +26,7 @@ Run `build_install_kokkos.sh`
 By default this is empty. It is intended to be set by the project.
 
 The system directories that are contained in `CMAKE_PREFIX_PATH` are locations that typically include installed software.
+
+## Cmake build with Kokkos
+
+[Error with `CMAKE_PATH_PREFIX`](https://dalg24.github.io/kokkos/#)
