@@ -58,11 +58,11 @@ add_library(
     Dna.cpp
 )
 target_link_libraries(${TARGET} PUBLIC ZLIB::ZLIB Kokkos::kokkos)
-target_include_directories(${TARGET} PUBLIC "${KOKKOS_INSTALL_DIR}/include")
+target_include_directories(${TARGET} PUBLIC ${KOKKOS_INSTALL_DIR}/include)
 
 
 add_executable(${TARGET}_kokkos main.cpp)
-
+target_link_libraries(${TARGET}_kokkos ${TARGET})
 
 # if ( OPENMP_FOUND )
 #     target_link_libraries(micro_aevol PUBLIC OpenMP::OpenMP_CXX)
