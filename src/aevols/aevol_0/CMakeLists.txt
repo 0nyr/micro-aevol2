@@ -12,12 +12,21 @@ list(APPEND CMAKE_PREFIX_PATH $ENV{KOKKOS_INSTALL_DIR}/lib/cmake/Kokkos)
 message("CMAKE_PREFIX_PATH = " ${CMAKE_PREFIX_PATH})
 
 # preprocessor
-set(DO_TRACES ON CACHE BOOL "Whether to enable the Traces library")
+set(DO_TRACES OFF CACHE BOOL "Whether to enable the Traces library")
+
+# runtime traces
+set(RUNTIME_TRACES ON CACHE BOOL "Our custom runtime traces")
 
 if ( DO_TRACES )
     add_definitions(-DTRACES)
     message( STATUS "Traces are activated" )
 endif ( DO_TRACES )
+
+if ( RUNTIME_TRACES )
+    add_definitions(-DRUNTIME_TRACES)
+    message( STATUS "Runtime traces are activated" )
+endif ( RUNTIME_TRACES )
+
 
 # packages
 find_package(ZLIB REQUIRED)

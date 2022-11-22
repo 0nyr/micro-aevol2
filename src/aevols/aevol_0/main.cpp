@@ -29,6 +29,10 @@
 #include <iostream>
 #include <getopt.h>
 #include <cstring>
+#include <sys/time.h>
+#include <fstream>
+#include <iomanip> // std::setprecision
+#include <iostream>
 
 #ifdef USE_CUDA
 #include "cuda/cuExpManager.h"
@@ -198,9 +202,46 @@ int main(int argc, char* argv[]) {
     delete tmp;
 #endif
 
-    exp_manager->run_evolution(nbstep);
+#ifdef RUNTIME_TRACES
+    // Timer products.
+    struct timeval begin, end;
+    gettimeofday( &begin, NULL );
+#endif
 
+    exp_manager->run_evolution(nbstep);
     delete exp_manager;
+
+#ifdef RUNTIME_TRACES
+    gettimeofday( &end, NULL );
+
+    // Calculate time.
+    double time = 1.0*(end.tv_sec-begin.tv_sec) + 1.0e-6*(end.tv_usec-begin.tv_usec);
+
+
+    // get dirpath, remove filename from argv[0]
+    std::string arvg0 = argv[0];
+    std::string dirpath = arvg0.substr(0, arvg0.find_last_of("/"));
+    std::string parentDir = dirpath.substr(0, dirpath.find_last_of("/"));
+    std::string filename = parentDir + "/stats/stats.csv";
+    std::cout << filename << std::endl;
+
+    // output to file 
+    std::ofstream myfile(filename, std::ios::app);
+
+    if (myfile.is_open())
+    {
+        myfile 
+            << width << "," 
+            << height << ","
+            << genome_size << ","
+            << mutation_rate << ","
+            << nbstep << ","
+            << std::setprecision(std::numeric_limits<double>::digits10) << time
+            << std::endl;
+        myfile.close();
+    }
+    else std::cerr<<"Unable to open file";
+#endif    
 
     return 0;
 }
