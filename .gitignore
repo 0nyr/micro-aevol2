@@ -5,5 +5,7 @@ experiments/
 src/*/backup_1000.zae
 src/*/stats_simd_best.csv
 src/*/stats_simd_mean.csv
+*.zae
 
 advisor/
+config/

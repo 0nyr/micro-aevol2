@@ -671,7 +671,7 @@ void Organism::look_for_new_promoters_starting_between(int32_t pos_1, int32_t po
     // Hamming distance of the sequence from the promoter consensus
 
     for (int32_t i = pos_1; i < pos_2; i++) {
-        int8_t dist = dna_->promoter_at(i);
+        int dist = dna_->promoter_at(i);
 
         if (dist <= PROM_MAX_DIFF) { // dist takes the hamming distance of the sequence from the consensus
             add_new_promoter(i, dist);

@@ -4,15 +4,18 @@
 
 #include "Dna.h"
 
+#include <iostream>
 #include <cassert>
 
 Dna::Dna(int length, Threefry::Gen &&rng) : seq_(length) {
     // Generate a random genome
     seq_ = boost::dynamic_bitset<>(length);
     // TODO: Kokkos
+    //std::cout << "before for" << "Dna::Dna" << std::endl;
     for (int32_t i = 0; i < length; i++) {
-        seq_[i] = '0' + rng.random(NB_BASE);
+        seq_[i] = rng.random(NB_BASE);
     }
+    //std::cout << "after for" << "Dna::Dna" << std::endl;
 }
 
 int Dna::length() const {
@@ -20,6 +23,7 @@ int Dna::length() const {
 }
 
 void Dna::save(gzFile backup_file) {
+    //std::cout << "begin" << "Dna::save" << std::endl;
     int dna_length = length();
     gzwrite(backup_file, &dna_length, sizeof(dna_length));
 
@@ -27,9 +31,11 @@ void Dna::save(gzFile backup_file) {
     std::string dna_string;
     boost::to_string(seq_, dna_string);
     gzwrite(backup_file, dna_string.data(), dna_length * sizeof(seq_[0]));
+    //std::cout << "end" << "Dna::save" << std::endl;
 }
 
 void Dna::load(gzFile backup_file) {
+    //std::cout << "begin" << "Dna::load" << std::endl;
     int dna_length;
     gzread(backup_file, &dna_length, sizeof(dna_length));
 
@@ -37,6 +43,7 @@ void Dna::load(gzFile backup_file) {
     gzread(backup_file, tmp_seq, dna_length * sizeof(tmp_seq[0]));
 
     seq_ = boost::dynamic_bitset<>(tmp_seq, tmp_seq + dna_length);
+    //std::cout << "end" << "Dna::load" << std::endl;
 }
 
 void Dna::set(int pos, bool c) {
@@ -50,6 +57,7 @@ void Dna::set(int pos, bool c) {
  * @param pos_2
  */
 void Dna::remove(int pos_1, int pos_2) {
+    //std::cout << "begin" << "Dna::remove" << std::endl;
     assert(pos_1 >= 0 && pos_2 >= pos_1 && pos_2 <= seq_.size());
     boost::dynamic_bitset<> newseq_(seq_.size()-(pos_2-pos_1+1));
     // TODO: Kokkos
@@ -59,6 +67,7 @@ void Dna::remove(int pos_1, int pos_2) {
         }
     }
     seq_ = newseq_;
+    //std::cout << "end" << "Dna::remove" << std::endl;
 }
 
 /**
@@ -69,7 +78,8 @@ void Dna::remove(int pos_1, int pos_2) {
  * @param seq_length : the size of the sequence
  */
 void Dna::insert(int pos, boost::dynamic_bitset<>& insertedSeq) {
-// Insert sequence 'seq' at position 'pos'
+    //std::cout << "begin" << "Dna::insert" << std::endl;
+    // Insert sequence 'seq' at position 'pos'
     assert(pos >= 0 && pos < seq_.size());
 
     boost::dynamic_bitset<> newseq_(seq_.size()+insertedSeq.size());
@@ -85,6 +95,7 @@ void Dna::insert(int pos, boost::dynamic_bitset<>& insertedSeq) {
         }
     }
     seq_ = newseq_;
+    //std::cout << "end" << "Dna::insert" << std::endl;
 }
 
 /**
@@ -99,11 +110,12 @@ void Dna::insert(int pos, Dna *dna) {
 }
 
 void Dna::do_switch(int pos) {
-    if (seq_[pos] == '0') seq_[pos] = '1';
-    else seq_[pos] = '0';
+    if (seq_[pos] == 0) seq_[pos] = 1;
+    else seq_[pos] = 0;
 }
 
 void Dna::do_duplication(int pos_1, int pos_2, int pos_3) {
+    //std::cout << "begin" << "Dna::do_duplication" << std::endl;
     // Duplicate segment [pos_1; pos_2[ and insert the duplicate before pos_3
     char *duplicate_segment = NULL;
 
@@ -149,52 +161,33 @@ void Dna::do_duplication(int pos_1, int pos_2, int pos_3) {
         }
         insert(pos_3, seq_dupl);
     }
+    //std::cout << "end" << "Dna::do_duplication" << std::endl;
 }
 
 int Dna::promoter_at(int pos) {
-    int prom_dist[PROM_SIZE];
+    //std::cout << "begin" << "Dna::promoter_at" << std::endl;
+    int dist_lead = 0;
 
     for (int motif_id = 0; motif_id < PROM_SIZE; motif_id++) {
         int search_pos = pos + motif_id;
-        if (search_pos >= seq_.size())
+        if (search_pos >= seq_.size()) {
             search_pos -= seq_.size();
+        }
+            
         // Searching for the promoter
-        prom_dist[motif_id] =
-                PROM_SEQ[motif_id] == seq_[search_pos] ? 0 : 1;
-
+        // do sum of PROM_SIZE first elements
+        bool PROM_SEQvalue = PROM_SEQ[motif_id] == '0' ? false : true;
+        dist_lead += PROM_SEQvalue == seq_[search_pos] ? 0 : 1;
     }
 
-
-    // Computing if a promoter exists at that position
-    int dist_lead = prom_dist[0] +
-                    prom_dist[1] +
-                    prom_dist[2] +
-                    prom_dist[3] +
-                    prom_dist[4] +
-                    prom_dist[5] +
-                    prom_dist[6] +
-                    prom_dist[7] +
-                    prom_dist[8] +
-                    prom_dist[9] +
-                    prom_dist[10] +
-                    prom_dist[11] +
-                    prom_dist[12] +
-                    prom_dist[13] +
-                    prom_dist[14] +
-                    prom_dist[15] +
-                    prom_dist[16] +
-                    prom_dist[17] +
-                    prom_dist[18] +
-                    prom_dist[19] +
-                    prom_dist[20] +
-                    prom_dist[21];
-
+    //std::cout << "end" << "Dna::promoter_at" << std::endl;
     return dist_lead;
 }
 
 // Given a, b, c, d boolean variable and X random boolean variable,
 // a terminator look like : a b c d X X !d !c !b !a
 int Dna::terminator_at(int pos) {
+    //std::cout << "begin" << "Dna::terminator_at" << std::endl;
     int term_dist[TERM_STEM_SIZE];
     for (int motif_id = 0; motif_id < TERM_STEM_SIZE; motif_id++) {
         int right = pos + motif_id;
@@ -212,10 +205,12 @@ int Dna::terminator_at(int pos) {
                          term_dist[2] +
                          term_dist[3];
 
+    //std::cout << "end" << "Dna::terminator_at" << std::endl;
     return dist_term_lead;
 }
 
 bool Dna::shine_dal_start(int pos) {
+    //std::cout << "begin" << "Dna::shine_dal_start" << std::endl;
     bool start = false;
     int t_pos, k_t;
 
@@ -233,10 +228,12 @@ bool Dna::shine_dal_start(int pos) {
         }
     }
 
+    //std::cout << "end" << "Dna::shine_dal_start" << std::endl;
     return start;
 }
 
 bool Dna::protein_stop(int pos) {
+    //std::cout << "begin" << "Dna::protein_stop" << std::endl;
     bool is_protein;
     int t_k;
 
@@ -253,10 +250,12 @@ bool Dna::protein_stop(int pos) {
         }
     }
 
+    //std::cout << "end" << "Dna::protein_stop" << std::endl;
     return is_protein;
 }
 
 int Dna::codon_at(int pos) {
+    //std::cout << "begin" << "Dna::codon_at" << std::endl;
     int value = 0;
 
     int t_pos;
@@ -269,5 +268,6 @@ int Dna::codon_at(int pos) {
             value += 1 << (CODON_SIZE - i - 1);
     }
 
+    //std::cout << "end" << "Dna::codon_at" << std::endl;
     return value;
 }
