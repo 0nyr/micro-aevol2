@@ -69,18 +69,19 @@ ExpManager::ExpManager(int grid_height, int grid_width, int seed, double mutatio
     mutation_rate_ = mutation_rate;
 
     // Building the target environment
-    auto *g1 = new Gaussian(1.2, 0.52, 0.12);
-    auto *g2 = new Gaussian(-1.4, 0.5, 0.07);
-    auto *g3 = new Gaussian(0.3, 0.8, 0.03);
+    // OPTI: Remove useless malloc
+    Gaussian g1 (1.2, 0.52, 0.12);
+    Gaussian g2 (-1.4, 0.5, 0.07);
+    Gaussian g3 (0.3, 0.8, 0.03);
 
     target = new double[FUZZY_SAMPLING];
     double geometric_area = 0.0;
     for (int i = 0; i < FUZZY_SAMPLING; i++) {
         double pt_i = ((double) i) / (double) FUZZY_SAMPLING;
 
-        double tmp = g1->compute_y(pt_i);
-        tmp += g2->compute_y(pt_i);
-        tmp += g3->compute_y(pt_i);
+        double tmp = g1.compute_y(pt_i);
+        tmp += g2.compute_y(pt_i);
+        tmp += g3.compute_y(pt_i);
 
         tmp = tmp > Y_MAX ? Y_MAX : tmp;
         tmp = tmp < Y_MIN ? Y_MIN : tmp;
@@ -88,10 +89,6 @@ ExpManager::ExpManager(int grid_height, int grid_width, int seed, double mutatio
         target[i] = tmp;
         geometric_area += tmp / (double)FUZZY_SAMPLING;
     }
-
-    delete g1;
-    delete g2;
-    delete g3;
 
     printf("Initialized environmental target %f\n", geometric_area);
 
@@ -111,6 +108,9 @@ ExpManager::ExpManager(int grid_height, int grid_width, int seed, double mutatio
         internal_organisms_[0] = random_organism;
 
         r_compare = round((random_organism->metaerror - geometric_area) * 1E10) / 1E10;
+        // print metaerror and geometric_area
+        std::cout << "random_organism->metaerror: " << random_organism->metaerror << std::endl;
+        std::cout << "geometric_area: " << geometric_area << std::endl;
     }
 
 //    internal_organisms_[0]->print_info();

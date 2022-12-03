@@ -7,7 +7,7 @@
 #include <iostream>
 #include <cassert>
 
-Dna::Dna(int length, Threefry::Gen &&rng) : seq_(length) {
+Dna::Dna(int length, Threefry::Gen &&rng) {
     // Generate a random genome
     seq_ = boost::dynamic_bitset<>(length);
     // TODO: Kokkos
@@ -16,6 +16,11 @@ Dna::Dna(int length, Threefry::Gen &&rng) : seq_(length) {
         seq_[i] = rng.random(NB_BASE);
     }
     //std::cout << "after for" << "Dna::Dna" << std::endl;
+    // print seq_
+    // for (size_t i = 0; i < length; i++) {
+    //     std::cout << seq_[i];
+    // }
+    // std::cout << std::endl;
 }
 
 int Dna::length() const {
@@ -177,7 +182,7 @@ int Dna::promoter_at(int pos) {
         // Searching for the promoter
         // do sum of PROM_SIZE first elements
         bool PROM_SEQvalue = PROM_SEQ[motif_id] == '0' ? false : true;
-        dist_lead += PROM_SEQvalue == seq_[search_pos] ? 0 : 1;
+        dist_lead += (int)PROM_SEQ[motif_id] == (int)seq_[search_pos] ? 0 : 1;
     }
 
     //std::cout << "end" << "Dna::promoter_at" << std::endl;
@@ -217,10 +222,10 @@ bool Dna::shine_dal_start(int pos) {
     for (int k = 0; k < SHINE_DAL_SIZE + CODON_SIZE; k++) {
         k_t = k >= SHINE_DAL_SIZE ? k + SD_START_SPACER : k;
         t_pos = pos + k_t;
-        if (t_pos >= seq_.size())
+        if (t_pos >= seq_.size()) {
             t_pos -= seq_.size();
-
-        if (seq_[t_pos] == SHINE_DAL_SEQ[k_t]) {
+        }
+        if ((int)seq_[t_pos] == (int)SHINE_DAL_SEQ[k_t]) {
             start = true;
         } else {
             start = false;
@@ -242,7 +247,7 @@ bool Dna::protein_stop(int pos) {
         if (t_k >= seq_.size())
             t_k -= seq_.size();
 
-        if (seq_[t_k] == PROTEIN_END[k]) {
+        if ((int)seq_[t_k] == (int)PROTEIN_END[k]) {
             is_protein = true;
         } else {
             is_protein = false;
@@ -264,7 +269,7 @@ int Dna::codon_at(int pos) {
         t_pos = pos + i;
         if (t_pos >= seq_.size())
             t_pos -= seq_.size();
-        if (seq_[t_pos] == '1')
+        if (seq_[t_pos] == 1)
             value += 1 << (CODON_SIZE - i - 1);
     }
 
