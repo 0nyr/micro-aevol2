@@ -160,6 +160,11 @@ int Dna::promoter_at(int pos) {
                     prom_dist[20] +
                     prom_dist[21];
 
+    // print each element of seq_
+    for (int i = 0; i < seq_.size(); i++) {
+        std::cout << seq_[i];
+    }
+    std::cout << " " << dist_lead << std::endl;
     return dist_lead;
 }
 

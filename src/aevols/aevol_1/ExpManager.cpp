@@ -104,13 +104,11 @@ ExpManager::ExpManager(int grid_height, int grid_width, int seed, double mutatio
     while (r_compare >= 0) {
         auto random_organism = std::make_shared<Organism>(init_length_dna, rng_->gen(0, Threefry::MUTATION));
         random_organism->locate_promoters();
+
         random_organism->evaluate(target);
         internal_organisms_[0] = random_organism;
 
         r_compare = round((random_organism->metaerror - geometric_area) * 1E10) / 1E10;
-        // print metaerror and geometric_area
-        std::cout << "random_organism->metaerror: " << random_organism->metaerror << std::endl;
-        std::cout << "geometric_area: " << geometric_area << std::endl;
     }
 
 //    internal_organisms_[0]->print_info();
