@@ -1,5 +1,10 @@
 # Kokkos
 
+### Useful links
+
+[kokkos core wiki doc](https://kokkos.github.io/kokkos-core-wiki/index.html)
+
+
 ## Install
 
 > WARN: build and install directories for Kokkos should really be different.

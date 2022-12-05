@@ -5,7 +5,10 @@
             "includePath": [
                 "${workspaceFolder}/**",
                 "/usr/include/c++/11",
-                "/usr/local/boost_1_80_0"
+                "/usr/local/boost_1_80_0",
+                "/home/onyr/Kokkos/kokkos_install",
+                "/home/onyr/Kokkos/kokkos_install/include",
+                "/usr/local/cuda-11.8/targets/x86_64-linux/include"
             ],
             "defines": [],
             "compilerPath": "/usr/bin/gcc",

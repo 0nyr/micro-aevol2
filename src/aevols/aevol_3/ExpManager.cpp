@@ -28,6 +28,7 @@
 
 #include <iostream>
 #include <zlib.h>
+#include <Kokkos_Core.hpp>
 
 using namespace std;
 
@@ -103,27 +104,40 @@ ExpManager::ExpManager(int grid_height, int grid_width, int seed, double mutatio
     }
 
     // Generate a random organism that is better than nothing
-    double r_compare = 0;
+    Kokkos::View<
+        bool, 
+        Kokkos::DefaultExecutionSpace, 
+        Kokkos::MemoryTraits<Kokkos::Atomic>
+    > found_organism("found_organism", false); // kokkos atomic bool
 
-    while (r_compare >= 0) {
-        auto random_organism = std::make_shared<Organism>(init_length_dna, rng_->gen(0, Threefry::MUTATION));
-        random_organism->locate_promoters();
+    // kokkos parallel for while found_organism is false
+    Kokkos::parallel_for("ExpManager::ExpManager find organism", NB_THREADS, KOKKOS_LAMBDA() {
+        while(!found_organism()) {
+            auto random_organism = std::make_shared<Organism>(init_length_dna, rng_->gen(0, Threefry::MUTATION));
+            random_organism->locate_promoters();
+            random_organism->evaluate(target);
+            double r_compare = round((random_organism->metaerror - geometric_area) * 1E10) / 1E10;
 
-        random_organism->evaluate(target);
-        internal_organisms_[0] = random_organism;
-
-        r_compare = round((random_organism->metaerror - geometric_area) * 1E10) / 1E10;
-    }
-
-//    internal_organisms_[0]->print_info();
+            if (r_compare < 0.0 && found_organism() == false) {
+                // good random organism found
+                    internal_organisms_[0] = random_organism;
+                    found_organism() = true;
+            }
+        }
+    });
 
     printf("Populating the environment\n");
 
     // Create a population of clones based on the randomly generated organism
-    for (int indiv_id = 0; indiv_id < nb_indivs_; indiv_id++) {
-        prev_internal_organisms_[indiv_id] = internal_organisms_[indiv_id] =
+    // kokkos parallel for: create nb_indivs_/NB_THREADS clones
+    Kokkos::parallel_for("ExpManager::ExpManager populate", NB_THREADS, KOKKOS_LAMBDA(const int thread_id) {
+        size_t start = thread_id * nb_indivs_ / NB_THREADS;
+        size_t end = (thread_id + 1) * nb_indivs_ / NB_THREADS;
+        for (int indiv_id = start; indiv_id < end; ++indiv_id) {
+            prev_internal_organisms_[indiv_id] = internal_organisms_[indiv_id] =
                 std::make_shared<Organism>(internal_organisms_[0]);
-    }
+        }
+    });
 
     // Create backup and stats directory
     create_directory();
