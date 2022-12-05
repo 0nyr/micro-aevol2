@@ -68,7 +68,7 @@ void Dna::set(int pos, bool c) {
 }
 
 /**
- * Remove the DNA inbetween pos_1 and pos_2
+ * Remove the DNA inbetween pos_1 included and pos_2 included
  *
  * @param pos_1
  * @param pos_2
@@ -76,14 +76,12 @@ void Dna::set(int pos, bool c) {
 void Dna::remove(int pos_1, int pos_2) {
     //std::cout << "begin" << "Dna::remove" << std::endl;
     assert(pos_1 >= 0 && pos_2 >= pos_1 && pos_2 <= seq_length);
-    boost::dynamic_bitset<> newseq_(seq_length-(pos_2-pos_1+1));
     // TODO: Kokkos
-    for(size_t i = 0; i < seq_length; i++) {
-        if(i < pos_1 || i > pos_2) {
-            newseq_[i] = seq_[i];
-        }
+    for(size_t i = 0; pos_2+i+1 < seq_length; ++i) {
+        DNA_seqs[pos_1+i] = DNA_seqs[pos_2+i+1];
     }
-    seq_ = newseq_;
+    // update real useful length
+    seq_length = seq_length-(pos_2-pos_1+1);
     //std::cout << "end" << "Dna::remove" << std::endl;
 }
 
@@ -97,21 +95,12 @@ void Dna::remove(int pos_1, int pos_2) {
 void Dna::insert(int pos, boost::dynamic_bitset<>& insertedSeq) {
     //std::cout << "begin" << "Dna::insert" << std::endl;
     // Insert sequence 'seq' at position 'pos'
-    assert(pos >= 0 && pos < seq_.size());
+    assert(pos >= 0 && pos < seq_length);
+    assert(pos + insertedSeq.size() < seq_length);
 
-    boost::dynamic_bitset<> newseq_(seq_.size()+insertedSeq.size());
-    // TODO: Kokkos
-    for (size_t i = 0; i < seq_.size()+insertedSeq.size(); i++)
-    {
-        if(i < pos) {
-            newseq_[i] = seq_[i];
-        } else if(i >= pos && i < pos+insertedSeq.size()) {
-            newseq_[i] = insertedSeq[i-pos];
-        } else {
-            newseq_[i] = seq_[i-insertedSeq.size()];
-        }
+    for (size_t i = 0; i < insertedSeq.size(); i++) {
+        DNA_seqs[seq_start + pos + i] = insertedSeq[i];
     }
-    seq_ = newseq_;
     //std::cout << "end" << "Dna::insert" << std::endl;
 }
 
@@ -123,20 +112,24 @@ void Dna::insert(int pos, boost::dynamic_bitset<>& insertedSeq) {
  * @param seq_length : the size of the sequence
  */
 void Dna::insert(int pos, Dna *dna) {
-    Dna::insert(pos, dna->seq_);
+    assert(pos >= 0 && pos < seq_length);
+    assert(pos + dna->seq_length < seq_length);
+
+    for (size_t i = 0; i < dna->seq_length; i++) {
+        DNA_seqs[seq_start + pos + i] = DNA_seqs[dna->seq_start + i];
+    }
 }
 
 void Dna::do_switch(int pos) {
-    if (seq_[pos] == 0) seq_[pos] = 1;
-    else seq_[pos] = 0;
+    if (DNA_seqs[seq_start + pos] == 0) DNA_seqs[seq_start + pos] = 1;
+    else DNA_seqs[seq_start + pos] = 0;
 }
 
 void Dna::do_duplication(int pos_1, int pos_2, int pos_3) {
     //std::cout << "begin" << "Dna::do_duplication" << std::endl;
     // Duplicate segment [pos_1; pos_2[ and insert the duplicate before pos_3
-    char *duplicate_segment = NULL;
-
-    int32_t seg_length;
+    size_t seq_dupl_size = pos_2 - pos_1; // pos_2 is excluded
+    boost::dynamic_bitset<> seq_dupl(pos_2 - pos_1);
 
     if (pos_1 < pos_2) {
         //
@@ -148,10 +141,9 @@ void Dna::do_duplication(int pos_1, int pos_2, int pos_3) {
         //                                             -----      |
         //                                             pos_2    <-'
         //
-        boost::dynamic_bitset<> seq_dupl(pos_2 - pos_1 + 1);
         // TODO: Kokkos
-        for(size_t i=pos_1; i < pos_2; ++i) {
-            seq_dupl[i-pos_1] = seq_[i+pos_1];
+        for(size_t i = pos_1; i < pos_2; ++i) { // pos_2 is excluded
+            seq_dupl[i-pos_1] = DNA_seqs[seq_start + i];
         }
         insert(pos_3, seq_dupl);
     } else { // if (pos_1 >= pos_2)
@@ -167,14 +159,13 @@ void Dna::do_duplication(int pos_1, int pos_2, int pos_3) {
         //                                                  -----
         //
         //
-        boost::dynamic_bitset<> seq_dupl(pos_2 - pos_1 + 1);
         // TODO: Kokkos
-        for(size_t i=pos_1; i < seq_.size(); ++i) {
-            seq_dupl[i-pos_1] = seq_[i];
+        for(size_t i = pos_1; i < seq_length; ++i) { 
+            seq_dupl[i-pos_1] = DNA_seqs[seq_start + i];
         }
-        size_t startShift = seq_.size()-pos_1;
-        for(size_t i=0; i < pos_2; ++i) {
-            seq_dupl[i+startShift] = seq_[i];
+        size_t startShift = seq_length - pos_1;
+        for(size_t i = 0; i < pos_2; ++i) { // pos_2 is excluded
+            seq_dupl[i+startShift] = DNA_seqs[seq_start + i];
         }
         insert(pos_3, seq_dupl);
     }
@@ -187,13 +178,13 @@ int Dna::promoter_at(int pos) {
 
     for (int motif_id = 0; motif_id < PROM_SIZE; motif_id++) {
         int search_pos = pos + motif_id;
-        if (search_pos >= seq_.size()) {
-            search_pos -= seq_.size();
+        if (search_pos >= seq_length) {
+            search_pos -= seq_length;
         }
             
         // Searching for the promoter
         // do sum of PROM_SIZE first elements
-        dist_lead += C2I(PROM_SEQ[motif_id]) == (int)seq_[search_pos] ? 0 : 1;
+        dist_lead += C2I(PROM_SEQ[motif_id]) == (int)DNA_seqs[seq_start + search_pos] ? 0 : 1;
     }
 
     return dist_lead;
@@ -203,7 +194,7 @@ int Dna::promoter_at(int pos) {
 // a terminator look like : a b c d X X !d !c !b !a
 int Dna::terminator_at(int pos) {
     //std::cout << "begin" << "Dna::terminator_at" << std::endl;
-    int term_dist[TERM_STEM_SIZE];
+    int dist_term_lead = 0;
     for (int motif_id = 0; motif_id < TERM_STEM_SIZE; motif_id++) {
         int right = pos + motif_id;
         int left = pos + (TERM_SIZE - 1) - motif_id;
@@ -213,13 +204,8 @@ int Dna::terminator_at(int pos) {
         if (left >= length()) left -= length();
 
         // Search for the terminators
-        term_dist[motif_id] = seq_[right] != seq_[left] ? 1 : 0;
+        dist_term_lead += DNA_seqs[seq_start + right] != DNA_seqs[seq_start + left] ? 1 : 0;
     }
-    int dist_term_lead = term_dist[0] +
-                         term_dist[1] +
-                         term_dist[2] +
-                         term_dist[3];
-
     //std::cout << "end" << "Dna::terminator_at" << std::endl;
     return dist_term_lead;
 }
@@ -232,10 +218,10 @@ bool Dna::shine_dal_start(int pos) {
     for (int k = 0; k < SHINE_DAL_SIZE + CODON_SIZE; k++) {
         k_t = k >= SHINE_DAL_SIZE ? k + SD_START_SPACER : k;
         t_pos = pos + k_t;
-        if (t_pos >= seq_.size()) {
-            t_pos -= seq_.size();
+        if (t_pos >= seq_length) {
+            t_pos -= seq_length;
         }
-        if ((int)seq_[t_pos] == C2I(SHINE_DAL_SEQ[k_t])) {
+        if ((int)DNA_seqs[seq_start + t_pos] == C2I(SHINE_DAL_SEQ[k_t])) {
             start = true;
         } else {
             start = false;
@@ -254,10 +240,10 @@ bool Dna::protein_stop(int pos) {
 
     for (int k = 0; k < CODON_SIZE; k++) {
         t_k = pos + k;
-        if (t_k >= seq_.size())
-            t_k -= seq_.size();
+        if (t_k >= seq_length)
+            t_k -= seq_length;
 
-        if ((int)seq_[t_k] == C2I(PROTEIN_END[k])) {
+        if ((int)DNA_seqs[seq_start + t_k] == C2I(PROTEIN_END[k])) {
             is_protein = true;
         } else {
             is_protein = false;
@@ -277,9 +263,9 @@ int Dna::codon_at(int pos) {
 
     for (int i = 0; i < CODON_SIZE; i++) {
         t_pos = pos + i;
-        if (t_pos >= seq_.size())
-            t_pos -= seq_.size();
-        if (seq_[t_pos] == 1)
+        if (t_pos >= seq_length)
+            t_pos -= seq_length;
+        if (DNA_seqs[seq_start + t_pos] == 1)
             value += 1 << (CODON_SIZE - i - 1);
     }
 
