@@ -9,3 +9,4 @@ src/*/stats_simd_mean.csv
 
 advisor/
 config/
+tmp/
