@@ -91,6 +91,7 @@
         "*.def": "cpp",
         "__string": "cpp",
         "__nullptr": "cpp",
-        "ios": "cpp"
+        "ios": "cpp",
+        "filesystem": "cpp"
     }
 }

@@ -1,4 +1,4 @@
-//
+//[
 // Created by arrouan on 01/10/18.
 //
 #define C2I(c) ((int)c - 48) // Convert a char to an int (ASCII)
@@ -46,12 +46,12 @@ void Dna::save(gzFile backup_file) {
 
     boost::dynamic_bitset<> seq_(seq_length);
     // copy the sequence from DNA_seqs to temporary seq_
-    for (int32_t i = seq_start; i < seq_start + seq_length; i++) {
-        seq_[i] = DNA_seqs[i];
+    for (size_t i = seq_start; i < seq_start + seq_length; i++) {
+        seq_[i - seq_start] = DNA_seqs[i];
     }
 
     boost::to_string(seq_, dna_string);
-    gzwrite(backup_file, dna_string.data(), seq_length * sizeof(std::string));
+    gzwrite(backup_file, dna_string.c_str(), dna_string.size());
 }
 
 void Dna::load(gzFile backup_file) {
