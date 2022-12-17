@@ -106,14 +106,23 @@ ExpManager::ExpManager(int grid_height, int grid_width, int seed, double mutatio
     // Generate a random organism that is better than nothing
     Kokkos::View<
         bool, 
-        Kokkos::DefaultExecutionSpace, 
+        Kokkos::DefaultHostExecutionSpace::memory_space, 
         Kokkos::MemoryTraits<Kokkos::Atomic>
-    > found_organism("found_organism", false); // kokkos atomic bool
+    > found_organism("found_organism"); // kokkos atomic bool
+    found_organism() = false;
 
     // kokkos parallel for while found_organism is false
-    Kokkos::parallel_for("ExpManager::ExpManager find organism", NB_THREADS, KOKKOS_LAMBDA() {
+    Kokkos::parallel_for(
+        "ExpManager::ExpManager find organism",
+        Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0, NB_THREADS),
+        [=](const size_t i) {
         while(!found_organism()) {
-            auto random_organism = std::make_shared<Organism>(init_length_dna, rng_->gen(0, Threefry::MUTATION));
+            auto random_organism = std::make_shared<Organism>(
+                (*DNA_seqs), // pass by reference the pointed object
+                0,
+                init_length_dna,
+                rng_->gen(0, Threefry::MUTATION)
+            );
             random_organism->locate_promoters();
             random_organism->evaluate(target);
             double r_compare = round((random_organism->metaerror - geometric_area) * 1E10) / 1E10;
@@ -130,12 +139,15 @@ ExpManager::ExpManager(int grid_height, int grid_width, int seed, double mutatio
 
     // Create a population of clones based on the randomly generated organism
     // kokkos parallel for: create nb_indivs_/NB_THREADS clones
-    Kokkos::parallel_for("ExpManager::ExpManager populate", NB_THREADS, KOKKOS_LAMBDA(const int thread_id) {
+    Kokkos::parallel_for(
+        "ExpManager::ExpManager populate",
+        Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0, NB_THREADS),
+        [=](const int thread_id) {
         size_t start = thread_id * nb_indivs_ / NB_THREADS;
         size_t end = (thread_id + 1) * nb_indivs_ / NB_THREADS;
         for (int indiv_id = start; indiv_id < end; ++indiv_id) {
             prev_internal_organisms_[indiv_id] = internal_organisms_[indiv_id] =
-                std::make_shared<Organism>(internal_organisms_[0]);
+                std::make_shared<Organism>(internal_organisms_[0], indiv_id);
         }
     });
 
@@ -281,7 +293,7 @@ void ExpManager::load(int t) {
 
     for (int indiv_id = 0; indiv_id < nb_indivs_; indiv_id++) {
         prev_internal_organisms_[indiv_id] = internal_organisms_[indiv_id] =
-                std::make_shared<Organism>(exp_backup_file);
+                std::make_shared<Organism>(exp_backup_file, *DNA_seqs);
     }
 
     rng_ = std::move(std::make_unique<Threefry>(grid_width_, grid_height_, exp_backup_file));
@@ -366,7 +378,7 @@ void ExpManager::prepare_mutation(int indiv_id) const {
     dna_mutator_array_[indiv_id]->generate_mutations();
 
     if (dna_mutator_array_[indiv_id]->hasMutate()) {
-        internal_organisms_[indiv_id] = std::make_shared<Organism>(parent);
+        internal_organisms_[indiv_id] = std::make_shared<Organism>(parent, indiv_id);
     } else {
         int parent_id = next_generation_reproducer_[indiv_id];
 

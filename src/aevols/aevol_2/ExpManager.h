@@ -64,6 +64,7 @@ private:
 
     void selection(int indiv_id) const;
 
+    // TODO: kokkos GPU
     std::shared_ptr<Organism> *internal_organisms_;
     std::shared_ptr<Organism> *prev_internal_organisms_;
     std::shared_ptr<Organism> best_indiv;

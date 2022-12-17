@@ -36,10 +36,20 @@ using namespace std;
  *
  * @param length : Length of the generated random DNA
  */
-Organism::Organism(int length, Threefry::Gen &&rng) {
+Organism::Organism(
+    boost::dynamic_bitset<> & DNA_seqs, 
+    size_t indiv_id,
+    int length, 
+    Threefry::Gen &&rng
+) {
     rna_count_ = 0;
-
-    dna_ = new Dna(length, std::move(rng));
+    
+    dna_ = new Dna(
+        DNA_seqs,
+        length, 
+        indiv_id*length, // seq_start
+        std::move(rng)
+    );
 }
 
 /**
@@ -47,9 +57,10 @@ Organism::Organism(int length, Threefry::Gen &&rng) {
  *
  * @param clone : The organism to clone
  */
-Organism::Organism(const std::shared_ptr<Organism> &clone) {
+Organism::Organism(const std::shared_ptr<Organism> &clone, const size_t indiv_id) {
     rna_count_ = 0;
-    dna_ = new Dna(*(clone->dna_));
+    size_t new_seq_start = indiv_id*clone->dna_->length();
+    dna_ = new Dna(*(clone->dna_), new_seq_start);
     promoters_ = clone->promoters_;
 }
 
@@ -58,10 +69,13 @@ Organism::Organism(const std::shared_ptr<Organism> &clone) {
  *
  * @param backup_file : gzFile to read from
  */
-Organism::Organism(gzFile backup_file) {
+Organism::Organism(
+    gzFile backup_file, 
+    boost::dynamic_bitset<> & DNA_seqs
+) {
     rna_count_ = 0;
 
-    load(backup_file);
+    load(backup_file, DNA_seqs);
 }
 
 /**
@@ -97,8 +111,11 @@ void Organism::save(gzFile backup_file) const {
  *
  * @param backup_file : from where restore the organism
  */
-void Organism::load(gzFile backup_file) {
-    dna_ = new Dna();
+void Organism::load(
+    gzFile backup_file, 
+    boost::dynamic_bitset<> & DNA_seqs
+) {
+    dna_ = new Dna(DNA_seqs);
     dna_->load(backup_file);
 }
 

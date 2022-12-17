@@ -28,6 +28,7 @@
 
 #include <iostream>
 #include <zlib.h>
+#include <Kokkos_Core.hpp>
 
 using namespace std;
 
@@ -106,7 +107,12 @@ ExpManager::ExpManager(int grid_height, int grid_width, int seed, double mutatio
     double r_compare = 0;
 
     while (r_compare >= 0) {
-        auto random_organism = std::make_shared<Organism>(init_length_dna, rng_->gen(0, Threefry::MUTATION));
+        auto random_organism = std::make_shared<Organism>(
+            (*DNA_seqs), // pass by reference the pointed object
+            0,
+            init_length_dna,
+            rng_->gen(0, Threefry::MUTATION)
+        );
         random_organism->locate_promoters();
 
         random_organism->evaluate(target);
@@ -115,14 +121,12 @@ ExpManager::ExpManager(int grid_height, int grid_width, int seed, double mutatio
         r_compare = round((random_organism->metaerror - geometric_area) * 1E10) / 1E10;
     }
 
-//    internal_organisms_[0]->print_info();
-
     printf("Populating the environment\n");
 
     // Create a population of clones based on the randomly generated organism
     for (int indiv_id = 0; indiv_id < nb_indivs_; indiv_id++) {
         prev_internal_organisms_[indiv_id] = internal_organisms_[indiv_id] =
-                std::make_shared<Organism>(internal_organisms_[0]);
+                std::make_shared<Organism>(internal_organisms_[0], indiv_id);
     }
 
     // Create backup and stats directory
@@ -267,7 +271,7 @@ void ExpManager::load(int t) {
 
     for (int indiv_id = 0; indiv_id < nb_indivs_; indiv_id++) {
         prev_internal_organisms_[indiv_id] = internal_organisms_[indiv_id] =
-                std::make_shared<Organism>(exp_backup_file);
+                std::make_shared<Organism>(exp_backup_file, *DNA_seqs);
     }
 
     rng_ = std::move(std::make_unique<Threefry>(grid_width_, grid_height_, exp_backup_file));
@@ -352,7 +356,7 @@ void ExpManager::prepare_mutation(int indiv_id) const {
     dna_mutator_array_[indiv_id]->generate_mutations();
 
     if (dna_mutator_array_[indiv_id]->hasMutate()) {
-        internal_organisms_[indiv_id] = std::make_shared<Organism>(parent);
+        internal_organisms_[indiv_id] = std::make_shared<Organism>(parent, indiv_id);
     } else {
         int parent_id = next_generation_reproducer_[indiv_id];
 

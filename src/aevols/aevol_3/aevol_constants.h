@@ -55,4 +55,4 @@ constexpr int8_t NEIGHBORHOOD_HEIGHT = 3;
 constexpr int8_t NEIGHBORHOOD_SIZE   = NEIGHBORHOOD_HEIGHT * NEIGHBORHOOD_WIDTH;
 
 // parallelization
-constexpr int8_t NB_THREADS = 8;
+constexpr int8_t NB_THREADS = 4;

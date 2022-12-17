@@ -33,12 +33,16 @@
 #include <fstream>
 #include <iomanip> // std::setprecision
 #include <iostream>
+#include <Kokkos_Core.hpp>
 
 #ifdef USE_CUDA
 #include "cuda/cuExpManager.h"
 #endif
 #include "Abstract_ExpManager.h"
 #include "ExpManager.h"
+
+#define OMP_PROC_BIND spread 
+#define OMP_PLACES threads
 
 void print_help(char* prog_path) {
     // Get the program file-name in prog_name (strip prog_path of the path)
@@ -75,6 +79,7 @@ void print_help(char* prog_path) {
     printf("  -b, --backup_step BACKUP_STEP\tDo a simulation backup/checkpoint every BACKUP_STEP\n");
     printf("  -r, --resume RESUME_STEP\tResume the simulation from the RESUME_STEP generations\n");
     printf("  -s, --seed SEED\tChange the seed for the pseudo random generator\n");
+    printf("  -t, --nb_host_threads NB_HOST_THREADS\tNumber of host threads (CPU), optional\n");
 }
 
 int main(int argc, char* argv[]) {
@@ -88,7 +93,9 @@ int main(int argc, char* argv[]) {
     int backup_step = -1;
     int seed = -1;
 
-    const char * options_list = "Hn:w:h:m:g:b:r:s:";
+    int nb_host_threads = 1;
+
+    const char * options_list = "Hn:w:h:m:g:b:r:s:t:";
     static struct option long_options_list[] = {
             // Print help
             { "help",     no_argument,        NULL, 'H' },
@@ -108,7 +115,10 @@ int main(int argc, char* argv[]) {
             { "backup_step", required_argument,  NULL, 'b' },
             // Seed
             { "seed", required_argument,  NULL, 's' },
-            { 0, 0, 0, 0 }
+            // Number of host threads (CPU), optional
+            { "nb_host_threads", optional_argument,  NULL, 't' },
+            // sentinel value that indicates the end of the array
+            { 0, 0, 0, 0 } 
     };
 
 
@@ -156,6 +166,11 @@ int main(int argc, char* argv[]) {
                 nbstep = atoi(optarg);
                 break;
             }
+            // custom parameters
+            case 't' : {
+                nb_host_threads = atoi(optarg);
+                break;
+            }
             default : {
                 // An error message is printed in getopt_long, we just need to exit
                 printf("Error unknown parameter\n");
@@ -163,6 +178,21 @@ int main(int argc, char* argv[]) {
             }
         }
     }
+
+    // Setup OpenMP before Kokkos
+    setenv("OMP_PROC_BIND", "spread", 1);
+    setenv("OMP_PLACES", "threads", 1);
+
+    // setup kokkos
+    // doc: https://kokkos.github.io/kokkos-core-wiki/API/core/initialize_finalize/initialize.html 
+    Kokkos::initialize(
+        Kokkos::InitializationSettings()
+        .set_print_configuration(true)
+        .set_num_threads(nb_host_threads)
+        .set_map_device_id_by("random")
+        .set_disable_warnings(false)
+        .set_tune_internals(true)
+    );
 
 #ifdef USE_CUDA
     printf("Activate CUDA\n");
@@ -242,6 +272,9 @@ int main(int argc, char* argv[]) {
     }
     else std::cerr<<"Unable to open file";
 #endif    
+    
+    // kokkos finalization
+    Kokkos::finalize();
 
     return 0;
 }

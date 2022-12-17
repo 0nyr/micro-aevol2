@@ -45,17 +45,22 @@
 class Organism {
 
 public:
-    Organism(int length, Threefry::Gen &&rng);
+    Organism(
+        boost::dynamic_bitset<> & DNA_seqs,
+        size_t indiv_id, 
+        int length,
+        Threefry::Gen &&rng
+    );
 
-    explicit Organism(const std::shared_ptr<Organism> &clone);
+    explicit Organism(const std::shared_ptr<Organism> &clone, const size_t indiv_id);
 
-    explicit Organism(gzFile backup_file);
+    explicit Organism(gzFile backup_file, boost::dynamic_bitset<> & DNA_seqs);
 
     ~Organism();
 
     void save(gzFile backup_file) const;
 
-    void load(gzFile backup_file);
+    void load(gzFile backup_file, boost::dynamic_bitset<> & DNA_seqs);
 
     int length() const { return dna_->length(); };
 
