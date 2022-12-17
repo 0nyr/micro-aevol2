@@ -23,13 +23,23 @@ Dna::Dna(
     }
 }
 
+Dna::Dna(const Dna &clone, const size_t new_seq_start):
+    DNA_seqs(clone.DNA_seqs), 
+    max_seq_length(clone.max_seq_length),
+    seq_length(clone.seq_length)
+{
+    seq_start = new_seq_start;
+}
+
 int Dna::length() const {
     return seq_length;
 }
 
 void Dna::save(gzFile backup_file) {
-    //std::cout << "begin" << "Dna::save" << std::endl;
+    // store seq_length, seq_start, max_seq_length
     gzwrite(backup_file, &seq_length, sizeof(seq_length));
+    gzwrite(backup_file, &seq_start, sizeof(seq_start));
+    gzwrite(backup_file, &max_seq_length, sizeof(max_seq_length));
 
     // need to convert bitset to array of char   boost::dynamic_bitset::to_string(seq_).data()
     std::string dna_string;
@@ -41,20 +51,22 @@ void Dna::save(gzFile backup_file) {
     }
 
     boost::to_string(seq_, dna_string);
-    gzwrite(backup_file, dna_string.data(), seq_length * sizeof(seq_[0]));
-    //std::cout << "end" << "Dna::save" << std::endl;
+    gzwrite(backup_file, dna_string.data(), seq_length * sizeof(std::string));
 }
 
 void Dna::load(gzFile backup_file) {
     //std::cout << "begin" << "Dna::load" << std::endl;
-    int dna_length;
-    gzread(backup_file, &dna_length, sizeof(dna_length));
 
-    char tmp_seq[dna_length];
-    gzread(backup_file, tmp_seq, dna_length * sizeof(tmp_seq[0]));
+    // read seq_length, seq_start, max_seq_length
+    gzread(backup_file, &seq_length, sizeof(seq_length));
+    gzread(backup_file, &seq_start, sizeof(seq_start));
+    gzread(backup_file, &max_seq_length, sizeof(max_seq_length));
+
+    char tmp_seq[seq_length];
+    gzread(backup_file, tmp_seq, seq_length * sizeof(std::string));
 
     boost::dynamic_bitset<> seq_(seq_length);
-    seq_ = boost::dynamic_bitset<>(tmp_seq, tmp_seq + dna_length);
+    seq_ = boost::dynamic_bitset<>(tmp_seq, tmp_seq + seq_length);
 
     // copy the sequence from temporary seq_ to DNA_seqs
     for (int32_t i = 0; i < seq_length; i++) {

@@ -88,6 +88,9 @@
         "valarray": "cpp",
         "variant": "cpp",
         "*.ipp": "cpp",
-        "*.def": "cpp"
+        "*.def": "cpp",
+        "__string": "cpp",
+        "__nullptr": "cpp",
+        "ios": "cpp"
     }
 }

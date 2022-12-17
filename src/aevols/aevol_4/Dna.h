@@ -14,11 +14,18 @@
 class Dna {
 
 public:
-    Dna() = default;
+    Dna(
+        boost::dynamic_bitset<> & DNA_seqs
+    ): DNA_seqs(DNA_seqs) {};
 
-    Dna(const Dna &clone) = default;
+    Dna(const Dna &clone, const size_t new_seq_start);
 
-    Dna(boost::dynamic_bitset<> & DNA_seqs, int length, int seq_start, Threefry::Gen &&rng);
+    Dna(
+        boost::dynamic_bitset<> & DNA_seqs, 
+        int length, 
+        int seq_start, 
+        Threefry::Gen &&rng
+    );
 
     ~Dna() = default;
 
