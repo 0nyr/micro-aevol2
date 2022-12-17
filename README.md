@@ -82,7 +82,7 @@ For the authors of Aevol software, see [http://www.aevol.fr](http://www.aevol.fr
 * `src/aevols/aevol_1`: Replaced `std::vector<char> seq_;` from `Dna.h` by `boost::dynamic_bitset<> seq_;`
 * `src/aevols/aevol_2`: Removed the individuals `boost::dynamic_bitset<> seq_;` and created a unique 1D dynamic bitset `std::unique_ptr<boost::dynamic_bitset<>> DNA_seqs;` inside `ExpManager.h`.
 * `src/aevols/aevol_3`: Started to use `Kokkos` to parallelize the loops inside `ExpManager.cpp` `ExpManager::ExpManager`.
-
+* `src/aevols/aevol_4`: Use `Kokkos` on GPU to parallelize generation evolution computations.
 
 ## License
 
