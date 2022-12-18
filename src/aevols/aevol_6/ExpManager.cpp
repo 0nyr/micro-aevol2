@@ -418,63 +418,54 @@ void ExpManager::prepare_mutation(int indiv_id) const {
  * Execute a generation of the simulation for all the Organisms
  *
  */
-void ExpManager::run_a_step() {
+void ExpManager::run_a_step(
+    size_t indiv_id, 
+    Kokkos::View<
+        double, 
+        Kokkos::DefaultExecutionSpace::memory_space, 
+        Kokkos::MemoryTraits<Kokkos::Atomic>
+    > bestFitnessYet
+    ) {
 
     // Running the simulation process for each organism
-    Kokkos::parallel_for(
-            "ExpManager::run_a_step 1",
-            Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0, nb_indivs_),
-            [=] (const size_t indiv_id) 
-        {
-        selection(indiv_id);
-        prepare_mutation(indiv_id);
+    selection(indiv_id);
+    prepare_mutation(indiv_id);
 
-        if (dna_mutator_array_[indiv_id]->hasMutate()) {
-            auto &mutant = internal_organisms_[indiv_id];
-            mutant->apply_mutations(dna_mutator_array_[indiv_id]->mutation_list_);
-            mutant->evaluate(target);
-        }
-        }
-    );
+    if (dna_mutator_array_[indiv_id]->hasMutate()) {
+        auto &mutant = internal_organisms_[indiv_id];
+        mutant->apply_mutations(dna_mutator_array_[indiv_id]->mutation_list_);
+        mutant->evaluate(target);
+    }
+
+    Kokkos::fence("Fence 1");
 
     // Swap Population
-    Kokkos::parallel_for(
-            "ExpManager::run_a_step 2",
-            Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0, nb_indivs_),
-            [=] (const size_t indiv_id) 
-        {
-        prev_internal_organisms_[indiv_id] = internal_organisms_[indiv_id];
-        internal_organisms_[indiv_id] = nullptr;
-        }
-    );
+    prev_internal_organisms_[indiv_id] = internal_organisms_[indiv_id];
+    internal_organisms_[indiv_id] = nullptr;
+
+    if(indiv_id == 0) {
+        bestFitnessYet() = prev_internal_organisms_[0]->fitness;
+        // Stats
+        stats_best->reinit(AeTime::time());
+        stats_mean->reinit(AeTime::time());
+    }
+
+    Kokkos::fence("Fence 2");
 
     // Search for the best
-    double best_fitness = prev_internal_organisms_[0]->fitness;
-    int idx_best = 0;
-    for (int indiv_id = 1; indiv_id < nb_indivs_; indiv_id++) {
-        if (prev_internal_organisms_[indiv_id]->fitness > best_fitness) {
-            idx_best = indiv_id;
-            best_fitness = prev_internal_organisms_[indiv_id]->fitness;
-        }
+    if (prev_internal_organisms_[indiv_id]->fitness > bestFitnessYet()) {
+        bestFitnessYet() = prev_internal_organisms_[indiv_id]->fitness;
     }
-    best_indiv = prev_internal_organisms_[idx_best];
 
-    // Stats
-    stats_best->reinit(AeTime::time());
-    stats_mean->reinit(AeTime::time());
-    
-    Kokkos::parallel_for(
-            "ExpManager::run_a_step 3",
-            Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0, nb_indivs_),
-            [=] (const size_t indiv_id) 
-        {
-        if (dna_mutator_array_[indiv_id]->hasMutate())
-            prev_internal_organisms_[indiv_id]->compute_protein_stats();
-        }
-    );
+    Kokkos::fence("Fence 3");
+    if (dna_mutator_array_[indiv_id]->hasMutate())
+        prev_internal_organisms_[indiv_id]->compute_protein_stats();
 
-    stats_best->write_best(best_indiv);
-    stats_mean->write_average(prev_internal_organisms_, nb_indivs_);
+    Kokkos::fence("Fence 4");
+    if (indiv_id == 0) {
+        stats_best->write_best(best_indiv);
+        stats_mean->write_average(prev_internal_organisms_, nb_indivs_);
+    }
 }
 
 
@@ -485,49 +476,64 @@ void ExpManager::run_a_step() {
  */
 void ExpManager::run_evolution(int nb_gen) {
     INIT_TRACER("trace.csv", {"FirstEvaluation", "STEP"});
-
-    TIMESTAMP(0, {
-        // parallelize with Kokkos
-        Kokkos::parallel_for(
-            "ExpManager::run_evolution init evaluation",
+    Kokkos::parallel_for(
+            "ExpManager::run_a_step 3",
             Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0, nb_indivs_),
             [=] (const size_t indiv_id) 
         {
+
             internal_organisms_[indiv_id]->locate_promoters();
             prev_internal_organisms_[indiv_id]->evaluate(target);
             prev_internal_organisms_[indiv_id]->compute_protein_stats();
-        });
 
-    });
+            // Stats
+            if (indiv_id == 0) {
+                stats_best = new Stats(AeTime::time(), true);
+                stats_mean = new Stats(AeTime::time(), false);
+
+                printf("Running evolution from %d to %d\n", AeTime::time(), AeTime::time() + nb_gen);
+            }
+        }
+    );
+
     FLUSH_TRACES(0)
+
+    Kokkos::View<
+        double, 
+        Kokkos::DefaultExecutionSpace::memory_space, 
+        Kokkos::MemoryTraits<Kokkos::Atomic>
+    > bestFitnessYet("best fitness", 1);
+    bestFitnessYet() = 0;
 
     // Stats
     stats_best = new Stats(AeTime::time(), true);
     stats_mean = new Stats(AeTime::time(), false);
 
-    printf("Running evolution from %d to %d\n", AeTime::time(), AeTime::time() + nb_gen);
-
     for (int gen = 0; gen < nb_gen; gen++) {
         AeTime::plusplus();
 
-        TIMESTAMP(1, run_a_step();)
-
-        printf("Generation %d : Best individual fitness %e\n", AeTime::time(), best_indiv->fitness);
-        FLUSH_TRACES(gen)
-
         Kokkos::parallel_for(
-            "ExpManager::run_evolution delete",
+            "ExpManager::run_a_step 3",
             Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0, nb_indivs_),
             [=] (const size_t indiv_id) 
-        {
-            delete dna_mutator_array_[indiv_id];
-            dna_mutator_array_[indiv_id] = nullptr;
-        });
+            {
+                run_a_step(indiv_id, bestFitnessYet);
 
-        if (AeTime::time() % backup_step_ == 0) {
-            save(AeTime::time());
-            cout << "Backup for generation " << AeTime::time() << " done !" << endl;
-        }
+                if(indiv_id == 0) {
+                    printf("Generation %d : Best individual fitness %e\n", AeTime::time(), best_indiv->fitness);
+                }
+
+                delete dna_mutator_array_[indiv_id];
+                dna_mutator_array_[indiv_id] = nullptr;
+
+                if(indiv_id == 0) {
+                    if (AeTime::time() % backup_step_ == 0) {
+                        save(AeTime::time());
+                        cout << "Backup for generation " << AeTime::time() << " done !" << endl;
+                    }
+                }
+            }
+        );
     }
     STOP_TRACER
 }

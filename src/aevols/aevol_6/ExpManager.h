@@ -58,7 +58,14 @@ public:
     void run_evolution(int nb_gen) override;
 
 private:
-    void run_a_step();
+    void run_a_step(
+        size_t indiv_id, 
+        Kokkos::View<
+            double, 
+            Kokkos::DefaultExecutionSpace::memory_space, 
+            Kokkos::MemoryTraits<Kokkos::Atomic>
+        > bestFitnessYet
+    );
 
     void prepare_mutation(int indiv_id) const;
 
