@@ -83,7 +83,8 @@ For the authors of Aevol software, see [http://www.aevol.fr](http://www.aevol.fr
 * `src/aevols/aevol_2`: Removed the individuals `boost::dynamic_bitset<> seq_;` and created a unique 1D dynamic bitset `std::unique_ptr<boost::dynamic_bitset<>> DNA_seqs;` inside `ExpManager.h`.
 * `src/aevols/aevol_3`: Started to use `Kokkos` to parallelize the loops inside `ExpManager.cpp` `ExpManager::ExpManager`.
 * `src/aevols/aevol_4`: Replaced `boost::dynamic_bitset<> DNA_seqs` by  `Kokkos::View<char*, Kokkos::DefaultHostExecutionSpace::memory_space> DNA_seqs`.
-*
+* `src/aevols/aevol_5`: Working on parallelization of `for` loops inside `ExpManager::run_a_step()` with `Kokkos`.
+* `src/aevols/aevol_6`: Working on GPU with `Kokkos`.
 
 ## License
 
