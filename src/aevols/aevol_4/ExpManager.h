@@ -45,9 +45,9 @@ class ExpManager : public Abstract_ExpManager {
 #endif
 public:
     ExpManager(int grid_height, int grid_width, int seed, double mutation_rate, int init_length_dna,
-               int backup_step);
+               int backup_step, int nb_host_threads);
 
-    explicit ExpManager(int time);
+    explicit ExpManager(int time, int nb_host_threads);
 
     ~ExpManager() override;
 
@@ -96,4 +96,5 @@ private:
     double mutation_rate_;
 
     int backup_step_;
+    int nb_host_threads_;
 };

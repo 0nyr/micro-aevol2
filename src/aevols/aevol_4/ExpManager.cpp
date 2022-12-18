@@ -51,8 +51,8 @@ using namespace std;
  * @param backup_step : How much often checkpoint must be done
  */
 ExpManager::ExpManager(int grid_height, int grid_width, int seed, double mutation_rate, int init_length_dna,
-                       int backup_step)
-        : seed_(seed), rng_(new Threefry(grid_width, grid_height, seed)) {
+                       int backup_step, int nb_host_threads)
+        : seed_(seed), rng_(new Threefry(grid_width, grid_height, seed)), nb_host_threads_(nb_host_threads) {
     // Initializing the data structure
     grid_height_ = grid_height;
     grid_width_ = grid_width;
@@ -125,7 +125,7 @@ ExpManager::ExpManager(int grid_height, int grid_width, int seed, double mutatio
     Kokkos::parallel_for(
         "ExpManager::ExpManager find organism",
         Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(
-            0, Kokkos::InitializationSettings().get_num_threads()
+            0, nb_host_threads_
         ),
         [=](const size_t i) {
         while(!found_organism()) {
@@ -154,12 +154,12 @@ ExpManager::ExpManager(int grid_height, int grid_width, int seed, double mutatio
     Kokkos::parallel_for(
         "ExpManager::ExpManager populate",
         Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(
-            0, Kokkos::InitializationSettings().get_num_threads()
+            0, nb_host_threads_
         ),
         [=](const int thread_id) 
     {
-        size_t start = thread_id * nb_indivs_ / Kokkos::InitializationSettings().get_num_threads();
-        size_t end = (thread_id + 1) * nb_indivs_ / Kokkos::InitializationSettings().get_num_threads();
+        size_t start = thread_id * nb_indivs_ / nb_host_threads_;
+        size_t end = (thread_id + 1) * nb_indivs_ / nb_host_threads_;
         for (int indiv_id = start; indiv_id < end; ++indiv_id) {
             prev_internal_organisms_[indiv_id] = internal_organisms_[indiv_id] =
                 std::make_shared<Organism>(internal_organisms_[0], indiv_id);
@@ -177,7 +177,7 @@ ExpManager::ExpManager(int grid_height, int grid_width, int seed, double mutatio
  *
  * @param time : resume from this generation
  */
-ExpManager::ExpManager(int time) {
+ExpManager::ExpManager(int time, int nb_host_threads) : nb_host_threads_(nb_host_threads) {
     target = new double[FUZZY_SAMPLING];
 
     load(time);

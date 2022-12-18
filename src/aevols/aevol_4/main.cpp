@@ -219,10 +219,10 @@ int main(int argc, char* argv[]) {
 
     Abstract_ExpManager *exp_manager;
     if (resume == -1) {
-        exp_manager = new ExpManager(height, width, seed, mutation_rate, genome_size, backup_step);
+        exp_manager = new ExpManager(height, width, seed, mutation_rate, genome_size, backup_step, nb_host_threads);
     } else {
         printf("Resuming...\n");
-        exp_manager = new ExpManager(resume);
+        exp_manager = new ExpManager(resume, nb_host_threads);
     }
 
 #ifdef USE_CUDA
