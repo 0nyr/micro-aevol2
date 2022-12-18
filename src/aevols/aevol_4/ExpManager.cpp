@@ -124,7 +124,9 @@ ExpManager::ExpManager(int grid_height, int grid_width, int seed, double mutatio
     // kokkos parallel for while found_organism is false
     Kokkos::parallel_for(
         "ExpManager::ExpManager find organism",
-        Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0, NB_THREADS),
+        Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(
+            0, Kokkos::InitializationSettings().get_num_threads()
+        ),
         [=](const size_t i) {
         while(!found_organism()) {
             auto random_organism = std::make_shared<Organism>(
@@ -151,10 +153,13 @@ ExpManager::ExpManager(int grid_height, int grid_width, int seed, double mutatio
     // kokkos parallel for: create nb_indivs_/NB_THREADS clones
     Kokkos::parallel_for(
         "ExpManager::ExpManager populate",
-        Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0, NB_THREADS),
-        [=](const int thread_id) {
-        size_t start = thread_id * nb_indivs_ / NB_THREADS;
-        size_t end = (thread_id + 1) * nb_indivs_ / NB_THREADS;
+        Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(
+            0, Kokkos::InitializationSettings().get_num_threads()
+        ),
+        [=](const int thread_id) 
+    {
+        size_t start = thread_id * nb_indivs_ / Kokkos::InitializationSettings().get_num_threads();
+        size_t end = (thread_id + 1) * nb_indivs_ / Kokkos::InitializationSettings().get_num_threads();
         for (int indiv_id = start; indiv_id < end; ++indiv_id) {
             prev_internal_organisms_[indiv_id] = internal_organisms_[indiv_id] =
                 std::make_shared<Organism>(internal_organisms_[0], indiv_id);
