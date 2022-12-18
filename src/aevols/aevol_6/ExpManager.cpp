@@ -69,19 +69,26 @@ ExpManager::ExpManager(int grid_height, int grid_width, int seed, double mutatio
 
     mutation_rate_ = mutation_rate;
 
-    DNA_seqs = std::unique_ptr<
+    DNA_seqs_gpu = std::unique_ptr<
         Kokkos::View<
             char*, 
-            Kokkos::DefaultHostExecutionSpace::memory_space
+            Kokkos::DefaultExecutionSpace::memory_space
         >
     > {
         std::make_unique<
             Kokkos::View<
                 char*, 
-                Kokkos::DefaultHostExecutionSpace::memory_space
+                Kokkos::DefaultExecutionSpace::memory_space
             >
         >("DNA_seqs", nb_indivs_ * init_length_dna)
     };
+    auto DNA_seqs_obj = Kokkos::create_mirror_view(*DNA_seqs_gpu);
+    DNA_seqs = std::make_unique<
+        Kokkos::View<
+            char*, 
+            Kokkos::DefaultHostExecutionSpace::memory_space
+        >
+    >(DNA_seqs_obj);
 
     // Building the target environment
     // OPTI: Remove useless malloc
@@ -168,7 +175,8 @@ ExpManager::ExpManager(int grid_height, int grid_width, int seed, double mutatio
     // Create backup and stats directory
     create_directory();
 
-
+    // copy the data from the host to the device
+    Kokkos::deep_copy(*DNA_seqs_gpu, *DNA_seqs);
 }
 
 /**
@@ -202,6 +210,9 @@ ExpManager::ExpManager(int time, int nb_host_threads) : nb_host_threads_(nb_host
  * @param t : simulated time of the checkpoint
  */
 void ExpManager::save(int t) const {
+
+    // get data back from the device
+    Kokkos::deep_copy(*DNA_seqs, *DNA_seqs_gpu);
 
     char exp_backup_file_name[255];
 

@@ -7,3 +7,4 @@ world_size_width,world_size_height,dna_size,mutation_rate,nb_generations,runtime
 64,64,250,1e-06,1000,0.271549
 32,32,250,1e-05,1000,0.201551
 64,64,250,1e-05,1000,0.256632
+256,256,250,1e-05,1000,3.440653

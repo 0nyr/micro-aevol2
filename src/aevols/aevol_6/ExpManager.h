@@ -73,6 +73,12 @@ private:
     std::unique_ptr<
         Kokkos::View<
             char*, 
+            Kokkos::DefaultExecutionSpace::memory_space
+        >
+    > DNA_seqs_gpu;
+    std::unique_ptr<
+        Kokkos::View<
+            char*, 
             Kokkos::DefaultHostExecutionSpace::memory_space
         >
     > DNA_seqs;
