@@ -412,7 +412,7 @@ void ExpManager::run_a_step() {
     // Running the simulation process for each organism
     Kokkos::parallel_for(
             "ExpManager::run_a_step 1",
-            Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(0, nb_indivs_),
+            Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0, nb_indivs_),
             [=] (const size_t indiv_id) 
         {
         selection(indiv_id);
@@ -429,7 +429,7 @@ void ExpManager::run_a_step() {
     // Swap Population
     Kokkos::parallel_for(
             "ExpManager::run_a_step 2",
-            Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(0, nb_indivs_),
+            Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0, nb_indivs_),
             [=] (const size_t indiv_id) 
         {
         prev_internal_organisms_[indiv_id] = internal_organisms_[indiv_id];
@@ -454,7 +454,7 @@ void ExpManager::run_a_step() {
     
     Kokkos::parallel_for(
             "ExpManager::run_a_step 3",
-            Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(0, nb_indivs_),
+            Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0, nb_indivs_),
             [=] (const size_t indiv_id) 
         {
         if (dna_mutator_array_[indiv_id]->hasMutate())
@@ -479,7 +479,7 @@ void ExpManager::run_evolution(int nb_gen) {
         // parallelize with Kokkos
         Kokkos::parallel_for(
             "ExpManager::run_evolution init evaluation",
-            Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(0, nb_indivs_),
+            Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0, nb_indivs_),
             [=] (const size_t indiv_id) 
         {
             internal_organisms_[indiv_id]->locate_promoters();
@@ -506,7 +506,7 @@ void ExpManager::run_evolution(int nb_gen) {
 
         Kokkos::parallel_for(
             "ExpManager::run_evolution delete",
-            Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(0, nb_indivs_),
+            Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0, nb_indivs_),
             [=] (const size_t indiv_id) 
         {
             delete dna_mutator_array_[indiv_id];

@@ -58,10 +58,10 @@ public:
     void run_evolution(int nb_gen) override;
 
 private:
-    void run_a_step(
+    __device__ void run_a_step(
         size_t indiv_id, 
         Kokkos::View<
-            double, 
+            double*, 
             Kokkos::DefaultExecutionSpace::memory_space, 
             Kokkos::MemoryTraits<Kokkos::Atomic>
         > bestFitnessYet
@@ -71,23 +71,41 @@ private:
 
     void selection(int indiv_id) const;
 
-    // TODO: kokkos GPU
-    std::shared_ptr<Organism> *internal_organisms_;
-    std::shared_ptr<Organism> *prev_internal_organisms_;
-    std::shared_ptr<Organism> best_indiv;
+    // kokkos CPU & GPU
+    Kokkos::View<
+        Organism, 
+        Kokkos::DefaultHostExecutionSpace::memory_space
+    > internal_organisms_;
+    Kokkos::View<
+        Organism, 
+        Kokkos::DefaultExecutionSpace::memory_space
+    > internal_organisms_gpu;
 
-    //std::unique_ptr<boost::dynamic_bitset<>> DNA_seqs;
-    std::unique_ptr<
-        Kokkos::View<
-            char*, 
-            Kokkos::DefaultExecutionSpace::memory_space
-        >
+    Kokkos::View<
+        Organism, 
+        Kokkos::DefaultHostExecutionSpace::memory_space
+    > prev_internal_organisms_;
+    Kokkos::View<
+        Organism, 
+        Kokkos::DefaultExecutionSpace::memory_space
+    > prev_internal_organisms_gpu;
+
+    Kokkos::View<
+        Organism, 
+        Kokkos::DefaultHostExecutionSpace::memory_space
+    > best_indiv;
+    Kokkos::View<
+        Organism, 
+        Kokkos::DefaultExecutionSpace::memory_space
+    > best_indiv_gpu;
+
+    Kokkos::View<
+        char*, 
+        Kokkos::DefaultExecutionSpace::memory_space
     > DNA_seqs_gpu;
-    std::unique_ptr<
-        Kokkos::View<
-            char*, 
-            Kokkos::DefaultHostExecutionSpace::memory_space
-        >
+    Kokkos::View<
+        char*, 
+        Kokkos::DefaultHostExecutionSpace::memory_space
     > DNA_seqs;
 
     int *next_generation_reproducer_;

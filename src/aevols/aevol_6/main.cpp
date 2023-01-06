@@ -194,6 +194,9 @@ int main(int argc, char* argv[]) {
         .set_tune_internals(true)
     );
 
+    // Print the configuration
+    Kokkos::print_configuration(std::cout);
+
 #ifdef USE_CUDA
     printf("Activate CUDA\n");
 #endif

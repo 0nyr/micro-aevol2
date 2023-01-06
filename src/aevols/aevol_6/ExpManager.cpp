@@ -29,6 +29,7 @@
 #include <iostream>
 #include <zlib.h>
 #include <Kokkos_Core.hpp>
+#include <Kokkos_View.hpp>
 
 using namespace std;
 
@@ -61,34 +62,38 @@ ExpManager::ExpManager(int grid_height, int grid_width, int seed, double mutatio
 
     nb_indivs_ = grid_height * grid_width;
 
-    internal_organisms_ = new std::shared_ptr<Organism>[nb_indivs_];
-    prev_internal_organisms_ = new std::shared_ptr<Organism>[nb_indivs_];
+    internal_organisms_gpu = Kokkos::View<
+            Organism, 
+            Kokkos::DefaultExecutionSpace::memory_space
+        > ("internal_organisms_gpu", nb_indivs_);
+    Kokkos::View<
+        Organism, 
+        Kokkos::DefaultHostExecutionSpace::memory_space
+    > internal_organisms_ = Kokkos::create_mirror_view(internal_organisms_gpu);
+
+    prev_internal_organisms_gpu = Kokkos::View<
+            Organism, 
+            Kokkos::DefaultExecutionSpace::memory_space
+        > ("prev_internal_organisms_gpu", nb_indivs_);
+    Kokkos::View<
+        Organism, 
+        Kokkos::DefaultHostExecutionSpace::memory_space
+    > prev_internal_organisms_ = Kokkos::create_mirror_view(prev_internal_organisms_gpu);
+
 
     next_generation_reproducer_ = new int[nb_indivs_]();
     dna_mutator_array_ = new DnaMutator *[nb_indivs_];
 
     mutation_rate_ = mutation_rate;
 
-    DNA_seqs_gpu = std::unique_ptr<
-        Kokkos::View<
+    DNA_seqs_gpu = Kokkos::View<
             char*, 
             Kokkos::DefaultExecutionSpace::memory_space
-        >
-    > {
-        std::make_unique<
-            Kokkos::View<
-                char*, 
-                Kokkos::DefaultExecutionSpace::memory_space
-            >
-        >("DNA_seqs", nb_indivs_ * init_length_dna)
-    };
-    auto DNA_seqs_obj = Kokkos::create_mirror_view(*DNA_seqs_gpu);
-    DNA_seqs = std::make_unique<
-        Kokkos::View<
-            char*, 
-            Kokkos::DefaultHostExecutionSpace::memory_space
-        >
-    >(DNA_seqs_obj);
+        > ("DNA_seqs", nb_indivs_ * init_length_dna);
+    Kokkos::View<
+        char*, 
+        Kokkos::DefaultHostExecutionSpace::memory_space
+    > DNA_seqs = Kokkos::create_mirror_view(DNA_seqs_gpu);
 
     // Building the target environment
     // OPTI: Remove useless malloc
@@ -135,19 +140,19 @@ ExpManager::ExpManager(int grid_height, int grid_width, int seed, double mutatio
         [=](const size_t i) 
     {
         while(!found_organism()) {
-            auto random_organism = std::make_shared<Organism>(
-                (*DNA_seqs), // pass by reference the pointed object
+            Organism random_organism(
+                DNA_seqs, // pass by reference the pointed object
                 0,
                 init_length_dna,
                 rng_->gen(0, Threefry::MUTATION)
             );
-            random_organism->locate_promoters();
-            random_organism->evaluate(target);
-            double r_compare = round((random_organism->metaerror - geometric_area) * 1E10) / 1E10;
+            random_organism.locate_promoters();
+            random_organism.evaluate(target);
+            double r_compare = round((random_organism.metaerror - geometric_area) * 1E10) / 1E10;
 
             if (r_compare < 0.0 && found_organism() == false) {
                 // good random organism found
-                    internal_organisms_[0] = random_organism;
+                    internal_organisms_(0) = random_organism;
                     found_organism() = true;
             }
         }
@@ -418,10 +423,10 @@ void ExpManager::prepare_mutation(int indiv_id) const {
  * Execute a generation of the simulation for all the Organisms
  *
  */
-void ExpManager::run_a_step(
+__device__ void ExpManager::run_a_step(
     size_t indiv_id, 
     Kokkos::View<
-        double, 
+        double*, 
         Kokkos::DefaultExecutionSpace::memory_space, 
         Kokkos::MemoryTraits<Kokkos::Atomic>
     > bestFitnessYet
@@ -444,7 +449,7 @@ void ExpManager::run_a_step(
     internal_organisms_[indiv_id] = nullptr;
 
     if(indiv_id == 0) {
-        bestFitnessYet() = prev_internal_organisms_[0]->fitness;
+        bestFitnessYet(0) = prev_internal_organisms_[0]->fitness;
         // Stats
         stats_best->reinit(AeTime::time());
         stats_mean->reinit(AeTime::time());
@@ -453,8 +458,8 @@ void ExpManager::run_a_step(
     Kokkos::fence("Fence 2");
 
     // Search for the best
-    if (prev_internal_organisms_[indiv_id]->fitness > bestFitnessYet()) {
-        bestFitnessYet() = prev_internal_organisms_[indiv_id]->fitness;
+    if (prev_internal_organisms_[indiv_id]->fitness > bestFitnessYet(0)) {
+        bestFitnessYet(0) = prev_internal_organisms_[indiv_id]->fitness;
     }
 
     Kokkos::fence("Fence 3");
@@ -478,7 +483,7 @@ void ExpManager::run_evolution(int nb_gen) {
     INIT_TRACER("trace.csv", {"FirstEvaluation", "STEP"});
     Kokkos::parallel_for(
             "ExpManager::run_a_step 3",
-            Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0, nb_indivs_),
+            Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(0, nb_indivs_),
             [=] (const size_t indiv_id) 
         {
 
@@ -498,23 +503,27 @@ void ExpManager::run_evolution(int nb_gen) {
 
     FLUSH_TRACES(0)
 
+    std::cout << "just before bestFitnessYet() " << std::endl;
     Kokkos::View<
-        double, 
+        double*, 
         Kokkos::DefaultExecutionSpace::memory_space, 
         Kokkos::MemoryTraits<Kokkos::Atomic>
-    > bestFitnessYet("best fitness", 1);
-    bestFitnessYet() = 0;
+    > bestFitnessYet(
+        "best fitness", 1
+    );
+    std::cout << "declared bestFitnessYet() " << std::endl;
 
     // Stats
     stats_best = new Stats(AeTime::time(), true);
     stats_mean = new Stats(AeTime::time(), false);
 
     for (int gen = 0; gen < nb_gen; gen++) {
+        // each generation is dependent on the previous one
         AeTime::plusplus();
 
         Kokkos::parallel_for(
             "ExpManager::run_a_step 3",
-            Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0, nb_indivs_),
+            Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(0, nb_indivs_),
             [=] (const size_t indiv_id) 
             {
                 run_a_step(indiv_id, bestFitnessYet);
