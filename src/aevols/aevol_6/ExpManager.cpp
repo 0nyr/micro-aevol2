@@ -82,7 +82,15 @@ ExpManager::ExpManager(int grid_height, int grid_width, int seed, double mutatio
 
 
     next_generation_reproducer_ = new int[nb_indivs_]();
-    dna_mutator_array_ = new DnaMutator *[nb_indivs_];
+
+    dna_mutator_array_gpu = Kokkos::View<
+            DnaMutator, 
+            Kokkos::DefaultExecutionSpace::memory_space
+        > ("prev_internal_organisms_gpu", nb_indivs_);
+    Kokkos::View<
+        DnaMutator, 
+        Kokkos::DefaultHostExecutionSpace::memory_space
+    > dna_mutator_array_ = Kokkos::create_mirror_view(dna_mutator_array_gpu);
 
     mutation_rate_ = mutation_rate;
 
@@ -120,11 +128,6 @@ ExpManager::ExpManager(int grid_height, int grid_width, int seed, double mutatio
     printf("Initialized environmental target %f\n", geometric_area);
 
 
-    // Initializing the PRNGs
-    for (int indiv_id = 0; indiv_id < nb_indivs_; ++indiv_id) {
-        dna_mutator_array_[indiv_id] = nullptr;
-    }
-
     // Generate a random organism that is better than nothing
     Kokkos::View<
         bool, 
@@ -134,14 +137,15 @@ ExpManager::ExpManager(int grid_height, int grid_width, int seed, double mutatio
     found_organism() = false;
 
     // kokkos parallel for while found_organism is false
+    auto pt_DNA_seqs = & DNA_seqs; // HACK: pass by reference
     Kokkos::parallel_for(
         "ExpManager::ExpManager find organism",
         Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0, nb_host_threads_),
-        [=](const size_t i) 
+        [=](const size_t i)
     {
         while(!found_organism()) {
             Organism random_organism(
-                DNA_seqs, // pass by reference the pointed object
+                *pt_DNA_seqs, // pass by reference the pointed object
                 0,
                 init_length_dna,
                 rng_->gen(0, Threefry::MUTATION)
@@ -172,8 +176,8 @@ ExpManager::ExpManager(int grid_height, int grid_width, int seed, double mutatio
         size_t start = thread_id * nb_indivs_ / nb_host_threads_;
         size_t end = (thread_id + 1) * nb_indivs_ / nb_host_threads_;
         for (int indiv_id = start; indiv_id < end; ++indiv_id) {
-            prev_internal_organisms_[indiv_id] = internal_organisms_[indiv_id] =
-                std::make_shared<Organism>(internal_organisms_[0], indiv_id);
+            prev_internal_organisms_(indiv_id) = internal_organisms_(indiv_id) =
+                internal_organisms_(0);
         }
     });
 
@@ -181,7 +185,9 @@ ExpManager::ExpManager(int grid_height, int grid_width, int seed, double mutatio
     create_directory();
 
     // copy the data from the host to the device
-    Kokkos::deep_copy(*DNA_seqs_gpu, *DNA_seqs);
+    Kokkos::deep_copy(DNA_seqs_gpu, DNA_seqs);
+    Kokkos::deep_copy(internal_organisms_gpu, internal_organisms_);
+    Kokkos::deep_copy(prev_internal_organisms_gpu, prev_internal_organisms_);
 }
 
 /**
@@ -201,12 +207,6 @@ ExpManager::ExpManager(int time, int nb_host_threads) : nb_host_threads_(nb_host
     }
 
     printf("Initialized environmental target %f\n", geometric_area);
-
-    dna_mutator_array_ = new DnaMutator *[nb_indivs_];
-    for (int indiv_id = 0; indiv_id < nb_indivs_; ++indiv_id) {
-        dna_mutator_array_[indiv_id] = nullptr;
-    }
-
 }
 
 /**
@@ -216,8 +216,8 @@ ExpManager::ExpManager(int time, int nb_host_threads) : nb_host_threads_(nb_host
  */
 void ExpManager::save(int t) const {
 
-    // get data back from the device
-    Kokkos::deep_copy(*DNA_seqs, *DNA_seqs_gpu);
+    // get data back from the device (to the host)
+    Kokkos::deep_copy(DNA_seqs, DNA_seqs_gpu);
 
     char exp_backup_file_name[255];
 
@@ -257,7 +257,7 @@ void ExpManager::save(int t) const {
     }
 
     for (int indiv_id = 0; indiv_id < nb_indivs_; indiv_id++) {
-        prev_internal_organisms_[indiv_id]->save(exp_backup_file);
+        prev_internal_organisms_(indiv_id).save(exp_backup_file);
     }
 
     rng_->save(exp_backup_file);
@@ -307,9 +307,6 @@ void ExpManager::load(int t) {
 
     nb_indivs_ = grid_height_ * grid_width_;
 
-    internal_organisms_ = new std::shared_ptr<Organism>[nb_indivs_];
-    prev_internal_organisms_ = new std::shared_ptr<Organism>[nb_indivs_];
-
     // No need to save/load this field from the backup because it will be set at selection()
     next_generation_reproducer_ = new int[nb_indivs_]();
 
@@ -324,8 +321,8 @@ void ExpManager::load(int t) {
     }
 
     for (int indiv_id = 0; indiv_id < nb_indivs_; indiv_id++) {
-        prev_internal_organisms_[indiv_id] = internal_organisms_[indiv_id] =
-                std::make_shared<Organism>(exp_backup_file, *DNA_seqs);
+        prev_internal_organisms_(indiv_id) = internal_organisms_(indiv_id) =
+                Organism(exp_backup_file, DNA_seqs);
     }
 
     rng_ = std::move(std::make_unique<Threefry>(grid_width_, grid_height_, exp_backup_file));
@@ -343,10 +340,6 @@ ExpManager::~ExpManager() {
     delete stats_best;
     delete stats_mean;
 
-    delete[] dna_mutator_array_;
-
-    delete[] internal_organisms_;
-    delete[] prev_internal_organisms_;
     delete[] next_generation_reproducer_;
     delete[] target;
 }
@@ -358,7 +351,7 @@ ExpManager::~ExpManager() {
   * 
   * TODO: Optimize function call (parallel calls)
  */
-void ExpManager::selection(int indiv_id) const {
+__device__ void ExpManager::selection(int indiv_id) const {
     double local_fit_array[NEIGHBORHOOD_SIZE];
     double probs[NEIGHBORHOOD_SIZE];
     int count = 0;
@@ -374,7 +367,7 @@ void ExpManager::selection(int indiv_id) const {
             cur_x = (x + i + grid_width_) % grid_width_;
             cur_y = (y + j + grid_height_) % grid_height_;
 
-            local_fit_array[count] = prev_internal_organisms_[cur_x * grid_width_ + cur_y]->fitness;
+            local_fit_array[count] = prev_internal_organisms_gpu(cur_x * grid_width_ + cur_y).fitness;
             sum_local_fit += local_fit_array[count];
 
             count++;
@@ -400,22 +393,23 @@ void ExpManager::selection(int indiv_id) const {
  *
  * @param indiv_id : Organism unique id
  */
-void ExpManager::prepare_mutation(int indiv_id) const {
+__device__ void ExpManager::prepare_mutation(int indiv_id) const {
     auto *rng = new Threefry::Gen(std::move(rng_->gen(indiv_id, Threefry::MUTATION)));
-    const shared_ptr<Organism> &parent = prev_internal_organisms_[next_generation_reproducer_[indiv_id]];
-    dna_mutator_array_[indiv_id] = new DnaMutator(
-            rng,
-            parent->length(),
-            mutation_rate_);
-    dna_mutator_array_[indiv_id]->generate_mutations();
+    const Organism parent = prev_internal_organisms_gpu(next_generation_reproducer_[indiv_id]);
+    dna_mutator_array_gpu(indiv_id) = DnaMutator(
+        rng,
+        parent.length(),
+        mutation_rate_
+    );
+    dna_mutator_array_gpu(indiv_id).generate_mutations();
 
-    if (dna_mutator_array_[indiv_id]->hasMutate()) {
-        internal_organisms_[indiv_id] = std::make_shared<Organism>(parent, indiv_id);
+    if (dna_mutator_array_gpu(indiv_id).hasMutate()) {
+        internal_organisms_gpu(indiv_id) = Organism(parent, indiv_id);
     } else {
         int parent_id = next_generation_reproducer_[indiv_id];
 
-        internal_organisms_[indiv_id] = prev_internal_organisms_[parent_id];
-        internal_organisms_[indiv_id]->reset_mutation_stats();
+        internal_organisms_gpu(indiv_id) = prev_internal_organisms_gpu(parent_id);
+        internal_organisms_gpu(indiv_id).reset_mutation_stats();
     }
 }
 
@@ -436,20 +430,20 @@ __device__ void ExpManager::run_a_step(
     selection(indiv_id);
     prepare_mutation(indiv_id);
 
-    if (dna_mutator_array_[indiv_id]->hasMutate()) {
-        auto &mutant = internal_organisms_[indiv_id];
-        mutant->apply_mutations(dna_mutator_array_[indiv_id]->mutation_list_);
-        mutant->evaluate(target);
+    if (dna_mutator_array_gpu(indiv_id).hasMutate()) {
+        auto &mutant = internal_organisms_gpu(indiv_id);
+        mutant.apply_mutations(dna_mutator_array_gpu(indiv_id).mutation_list_);
+        mutant.evaluate(target);
     }
 
     Kokkos::fence("Fence 1");
 
     // Swap Population
-    prev_internal_organisms_[indiv_id] = internal_organisms_[indiv_id];
-    internal_organisms_[indiv_id] = nullptr;
+    prev_internal_organisms_gpu(indiv_id) = internal_organisms_gpu(indiv_id);
+    // internal_organisms_(indiv_id) = nullptr;
 
     if(indiv_id == 0) {
-        bestFitnessYet(0) = prev_internal_organisms_[0]->fitness;
+        bestFitnessYet(0) = prev_internal_organisms_gpu(0).fitness;
         // Stats
         stats_best->reinit(AeTime::time());
         stats_mean->reinit(AeTime::time());
@@ -458,18 +452,18 @@ __device__ void ExpManager::run_a_step(
     Kokkos::fence("Fence 2");
 
     // Search for the best
-    if (prev_internal_organisms_[indiv_id]->fitness > bestFitnessYet(0)) {
-        bestFitnessYet(0) = prev_internal_organisms_[indiv_id]->fitness;
+    if (prev_internal_organisms_gpu(indiv_id).fitness > bestFitnessYet(0)) {
+        bestFitnessYet(0) = prev_internal_organisms_gpu(indiv_id).fitness;
     }
 
     Kokkos::fence("Fence 3");
-    if (dna_mutator_array_[indiv_id]->hasMutate())
-        prev_internal_organisms_[indiv_id]->compute_protein_stats();
+    if (dna_mutator_array_gpu(indiv_id).hasMutate())
+        prev_internal_organisms_gpu(indiv_id).compute_protein_stats();
 
     Kokkos::fence("Fence 4");
     if (indiv_id == 0) {
-        stats_best->write_best(best_indiv);
-        stats_mean->write_average(prev_internal_organisms_, nb_indivs_);
+        stats_best->write_best(best_indiv_gpu);
+        stats_mean->write_average(prev_internal_organisms_gpu, nb_indivs_);
     }
 }
 
@@ -487,9 +481,9 @@ void ExpManager::run_evolution(int nb_gen) {
             [=] (const size_t indiv_id) 
         {
 
-            internal_organisms_[indiv_id]->locate_promoters();
-            prev_internal_organisms_[indiv_id]->evaluate(target);
-            prev_internal_organisms_[indiv_id]->compute_protein_stats();
+            internal_organisms_(indiv_id).locate_promoters();
+            prev_internal_organisms_(indiv_id).evaluate(target);
+            prev_internal_organisms_(indiv_id).compute_protein_stats();
 
             // Stats
             if (indiv_id == 0) {
@@ -529,11 +523,8 @@ void ExpManager::run_evolution(int nb_gen) {
                 run_a_step(indiv_id, bestFitnessYet);
 
                 if(indiv_id == 0) {
-                    printf("Generation %d : Best individual fitness %e\n", AeTime::time(), best_indiv->fitness);
+                    printf("Generation %d : Best individual fitness %e\n", AeTime::time(), best_indiv().fitness);
                 }
-
-                delete dna_mutator_array_[indiv_id];
-                dna_mutator_array_[indiv_id] = nullptr;
 
                 if(indiv_id == 0) {
                     if (AeTime::time() % backup_step_ == 0) {

@@ -60,11 +60,11 @@ Organism::Organism(
  *
  * @param clone : The organism to clone
  */
-Organism::Organism(const std::shared_ptr<Organism> &clone, const size_t indiv_id) {
+Organism::Organism(const Organism & clone, const size_t indiv_id) {
     rna_count_ = 0;
-    size_t new_seq_start = indiv_id*clone->dna_->length();
-    dna_ = new Dna(*(clone->dna_), new_seq_start);
-    promoters_ = clone->promoters_;
+    size_t new_seq_start = indiv_id*clone.dna_->length();
+    dna_ = new Dna(*(clone.dna_), new_seq_start);
+    promoters_ = clone.promoters_;
 }
 
 /**

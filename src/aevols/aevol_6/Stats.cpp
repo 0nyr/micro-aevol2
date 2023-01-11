@@ -136,23 +136,23 @@ Stats::Stats(int generation, bool best_or_not) {
 /**
  * Compute the statistics for the best organism
  */
-void Stats::compute_best(const std::shared_ptr<Organism> &best) {
+void Stats::compute_best(Kokkos::View<Organism, Kokkos::DefaultExecutionSpace::memory_space> & best) {
     is_indiv_ = true;
 
-    fitness_ = best->fitness;
-    metabolic_error_ = best->metaerror;
+    fitness_ = best().fitness;
+    metabolic_error_ = best().metaerror;
 
-    amount_of_dna_ = best->length();
+    amount_of_dna_ = best().length();
 
-    nb_coding_rnas_ = best->nb_coding_RNAs;
-    nb_non_coding_rnas_ = best->nb_non_coding_RNAs;
+    nb_coding_rnas_ = best().nb_coding_RNAs;
+    nb_non_coding_rnas_ = best().nb_non_coding_RNAs;
 
-    nb_functional_genes_ = best->nb_func_genes;
-    nb_non_functional_genes_ = best->nb_non_func_genes;
+    nb_functional_genes_ = best().nb_func_genes;
+    nb_non_functional_genes_ = best().nb_non_func_genes;
 
 
-    nb_mut_ = best->nb_mut_;
-    nb_switch_ = best->nb_swi_;
+    nb_mut_ = best().nb_mut_;
+    nb_switch_ = best().nb_swi_;
 
     is_computed_ = true;
 }
@@ -160,7 +160,10 @@ void Stats::compute_best(const std::shared_ptr<Organism> &best) {
 /**
  * Compute the statistics of the mean of the whole population
  */
-void Stats::compute_average(const std::shared_ptr<Organism> *population, int population_size) {
+void Stats::compute_average(
+    Kokkos::View<Organism, Kokkos::DefaultExecutionSpace::memory_space> & population, 
+    int population_size
+) {
     is_indiv_ = false;
     pop_size_ = population_size;
 
@@ -176,20 +179,20 @@ void Stats::compute_average(const std::shared_ptr<Organism> *population, int pop
     mean_nb_switch_ = 0;
 
     for (int indiv_id = 0; indiv_id < pop_size_; indiv_id++) {
-        const auto &organism = population[indiv_id];
-        mean_fitness_ += organism->fitness;
-        mean_metabolic_error_ += organism->metaerror;
+        const auto &organism = population(indiv_id);
+        mean_fitness_ += organism.fitness;
+        mean_metabolic_error_ += organism.metaerror;
 
-        mean_amount_of_dna_ += organism->length();
+        mean_amount_of_dna_ += organism.length();
 
-        mean_nb_coding_rnas_ += organism->nb_coding_RNAs;
-        mean_nb_non_coding_rnas_ += organism->nb_non_coding_RNAs;
+        mean_nb_coding_rnas_ += organism.nb_coding_RNAs;
+        mean_nb_non_coding_rnas_ += organism.nb_non_coding_RNAs;
 
-        mean_nb_functional_genes_ += organism->nb_func_genes;
-        mean_nb_non_functional_genes_ += organism->nb_non_func_genes;
+        mean_nb_functional_genes_ += organism.nb_func_genes;
+        mean_nb_non_functional_genes_ += organism.nb_non_func_genes;
 
-        mean_nb_mut_ += organism->nb_mut_;
-        mean_nb_switch_ += organism->nb_swi_;
+        mean_nb_mut_ += organism.nb_mut_;
+        mean_nb_switch_ += organism.nb_swi_;
     }
 
 
@@ -214,7 +217,9 @@ void Stats::compute_average(const std::shared_ptr<Organism> *population, int pop
 /**
  * Write the statistics of the best organism to the related statistics file
  */
-void Stats::write_best(const std::shared_ptr<Organism> &best) {
+void Stats::write_best(
+    Kokkos::View<Organism, Kokkos::DefaultExecutionSpace::memory_space> & best
+) {
     if (is_indiv_ && !is_computed_)
         compute_best(best);
 
@@ -231,7 +236,10 @@ void Stats::write_best(const std::shared_ptr<Organism> &best) {
 /**
  * Write the statistics of the mean of the population to the related statistics file
  */
-void Stats::write_average(const std::shared_ptr<Organism> *population, int population_size) {
+void Stats::write_average(
+    Kokkos::View<Organism, Kokkos::DefaultExecutionSpace::memory_space> & population, 
+    int population_size
+) {
     if (!is_indiv_ && !is_computed_)
         compute_average(population, population_size);
 

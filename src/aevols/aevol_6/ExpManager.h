@@ -67,9 +67,9 @@ private:
         > bestFitnessYet
     );
 
-    void prepare_mutation(int indiv_id) const;
+    __device__ void prepare_mutation(int indiv_id) const;
 
-    void selection(int indiv_id) const;
+    __device__ void selection(int indiv_id) const;
 
     // kokkos CPU & GPU
     Kokkos::View<
@@ -109,7 +109,15 @@ private:
     > DNA_seqs;
 
     int *next_generation_reproducer_;
-    DnaMutator **dna_mutator_array_;
+
+    Kokkos::View<
+        DnaMutator, 
+        Kokkos::DefaultExecutionSpace::memory_space
+    > dna_mutator_array_gpu;
+    Kokkos::View<
+        DnaMutator, 
+        Kokkos::DefaultHostExecutionSpace::memory_space
+    > dna_mutator_array_;
 
     int nb_indivs_;
 

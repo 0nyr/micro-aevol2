@@ -56,7 +56,7 @@ public:
         Threefry::Gen &&rng
     );
 
-    explicit Organism(const std::shared_ptr<Organism> &clone, const size_t indiv_id);
+    explicit Organism(const Organism & clone, const size_t indiv_id);
 
     explicit Organism(
         gzFile backup_file, 

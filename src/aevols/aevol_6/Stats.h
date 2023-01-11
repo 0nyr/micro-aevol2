@@ -49,13 +49,13 @@ public:
         }
     }
 
-    void compute_best(const std::shared_ptr<Organism> &best);
+    void compute_best(Kokkos::View<Organism, Kokkos::DefaultExecutionSpace::memory_space> & best);
 
-    void compute_average(const std::shared_ptr<Organism> *population, int population_size);
+    void compute_average(Kokkos::View<Organism, Kokkos::DefaultExecutionSpace::memory_space> & population, int population_size);
 
-    void write_best(const std::shared_ptr<Organism> &best);
+    void write_best(Kokkos::View<Organism, Kokkos::DefaultExecutionSpace::memory_space> & best);
 
-    void write_average(const std::shared_ptr<Organism> *population, int population_size);
+    void write_average(Kokkos::View<Organism, Kokkos::DefaultExecutionSpace::memory_space> & population, int population_size);
 
     void reinit(int generation);
 
