@@ -35,6 +35,9 @@ set(Boost_USE_STATIC_RUNTIME OFF)
 # packages
 find_package(ZLIB REQUIRED)
 find_package(Kokkos REQUIRED)
+if(Kokkos_ENABLE_CUDA)
+  kokkos_check(OPTIONS CUDA_LAMBDA)
+endif()
 find_package(Boost REQUIRED) # COMPONENTS dynamic_bitset
 
 # build TARGET as library

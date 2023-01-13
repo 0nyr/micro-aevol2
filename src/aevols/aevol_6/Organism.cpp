@@ -529,10 +529,30 @@ void Organism::translate_protein() {
 }
 
 void Organism::compute_phenotype() {
-    double activ_phenotype[FUZZY_SAMPLING]{};
-    double inhib_phenotype[FUZZY_SAMPLING]{};
+    auto phenotype_gpu = Kokkos::View<
+            double*, 
+            Kokkos::DefaultExecutionSpace::memory_space
+        > ("phenotype_gpu", FUZZY_SAMPLING);
+    Kokkos::View<
+        double*, 
+        Kokkos::DefaultHostExecutionSpace::memory_space
+    > phenotype_cpu = Kokkos::create_mirror_view(phenotype_gpu);
 
-    for (int protein_idx = 0; protein_idx < protein_count_; protein_idx++) {
+    auto activ_phenotype = Kokkos::View<
+            double*, 
+            Kokkos::DefaultExecutionSpace::memory_space
+        > ("activ_phenotype", FUZZY_SAMPLING);
+    auto inhib_phenotype = Kokkos::View<
+            double*, 
+            Kokkos::DefaultExecutionSpace::memory_space
+        > ("inhib_phenotype", FUZZY_SAMPLING);
+
+
+    Kokkos::parallel_for(
+        "Organism::compute_phenotype 1",
+        Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(0, protein_count_),
+        [=] (const int protein_idx)
+    {
         const auto* protein = proteins[protein_idx];
         if (protein->is_init_ && protein->is_functional) {
             // Compute triangle points' coordinates
@@ -547,7 +567,7 @@ void Organism::compute_phenotype() {
 
             // active contribution is positive and inhib is negative
             double height = protein->h * protein->e;
-            auto* local_phenotype = protein->h > 0 ? activ_phenotype : inhib_phenotype;
+            auto* local_phenotype = protein->h > 0 ? &activ_phenotype : &inhib_phenotype;
 
             // Compute the first equation of the triangle
             double slope = height / (double)(ix1 - ix0);
@@ -556,7 +576,7 @@ void Organism::compute_phenotype() {
             // Updating value between x0 and x1
             for (int i = ix0; i < ix1; i++) {
                 if(i >= 0) {
-                    local_phenotype[i] += slope * (double)i + y_intercept;
+                    (*local_phenotype)(i) += slope * (double)i + y_intercept;
                 }
             }
 
@@ -567,27 +587,39 @@ void Organism::compute_phenotype() {
             // Updating value between x1 and x2
             for (int i = ix1; i < ix2; i++) {
                 if(i < FUZZY_SAMPLING) {
-                    local_phenotype[i] += slope * (double)i + y_intercept;
+                    (*local_phenotype)(i) += slope * (double)i + y_intercept;
                 }
             }
         }
-    }
+    });
 
+    Kokkos::parallel_for(
+        "Organism::compute_phenotype 2",
+        Kokkos::RangePolicy<Kokkos::DefaultExecutionSpace>(0, FUZZY_SAMPLING),
+        [=] (const int fuzzy_idx)
+    {
+        if (activ_phenotype(fuzzy_idx) > 1)
+            activ_phenotype(fuzzy_idx) = 1;
+        if (inhib_phenotype(fuzzy_idx) < -1)
+            inhib_phenotype(fuzzy_idx) = -1;
 
-    for (int fuzzy_idx = 0; fuzzy_idx < FUZZY_SAMPLING; fuzzy_idx++) {
-        if (activ_phenotype[fuzzy_idx] > 1)
-            activ_phenotype[fuzzy_idx] = 1;
-        if (inhib_phenotype[fuzzy_idx] < -1)
-            inhib_phenotype[fuzzy_idx] = -1;
-    }
+        phenotype_gpu(fuzzy_idx) = activ_phenotype(fuzzy_idx) + inhib_phenotype(fuzzy_idx);
+        if (phenotype_gpu(fuzzy_idx) < 0)
+            phenotype_gpu(fuzzy_idx) = 0;
+        if (phenotype_gpu(fuzzy_idx) > 1)
+            phenotype_gpu(fuzzy_idx) = 1;
+    });
 
-    for (int fuzzy_idx = 0; fuzzy_idx < FUZZY_SAMPLING; fuzzy_idx++) {
-        phenotype[fuzzy_idx] = activ_phenotype[fuzzy_idx] + inhib_phenotype[fuzzy_idx];
-        if (phenotype[fuzzy_idx] < 0)
-            phenotype[fuzzy_idx] = 0;
-        if (phenotype[fuzzy_idx] > 1)
-            phenotype[fuzzy_idx] = 1;
-    }
+    Kokkos::deep_copy(phenotype_cpu, phenotype_gpu);
+    
+    // copy phenotype_cpu to phenotype
+    Kokkos::parallel_for(
+        "Organism::compute_phenotype 3",
+        Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0, FUZZY_SAMPLING),
+        [=] (const int fuzzy_idx)
+    {
+        phenotype[fuzzy_idx] = phenotype_cpu(fuzzy_idx);
+    });
 }
 
 void Organism::compute_fitness(const double *target) {
