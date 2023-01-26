@@ -71,10 +71,17 @@ These [slides](/presentation/slides.pdf) give a short presentation of the model 
 
 ## Authors
 
-* **Jonathan Rouzaud-Cornabas** - *Initial work*
+Initial work and supervision:
+
+* **Jonathan Rouzaud-Cornabas**
 * **Laurent Turpin**
 
 For the authors of Aevol software, see [http://www.aevol.fr](http://www.aevol.fr)
+
+Authors of current repository:
+
+* **Florian (Onyr) Rascoussier**
+* **Bastien Barbe**
 
 ## Our Optimizations
 
@@ -84,8 +91,26 @@ For the authors of Aevol software, see [http://www.aevol.fr](http://www.aevol.fr
 * `src/aevols/aevol_3`: Started to use `Kokkos` to parallelize the loops inside `ExpManager.cpp` `ExpManager::ExpManager`.
 * `src/aevols/aevol_4`: Replaced `boost::dynamic_bitset<> DNA_seqs` by  `Kokkos::View<char*, Kokkos::DefaultHostExecutionSpace::memory_space> DNA_seqs`.
 * `src/aevols/aevol_5`: Working on parallelization of `for` loops inside `ExpManager::run_a_step()` with `Kokkos`.
-* `src/aevols/aevol_6`: Working on GPU with `Kokkos`. Still using CPU.
+* `src/aevols/aevol_6`: **Unreleased:** Working on GPU with `Kokkos`. Still using CPU. We made 2 differents attemps of `aevol_6` without successfully succeded to run a part of the code on GPU using `Kokkos` as a wrapper for `Cuda`.
 
 ## License
 
 This project is licensed under the GPLv2 License
+
+## Results
+
+The speed execution of 5 different versions of `aevol_x` have been measure of a 64-bit Ubuntu 22.04 LTS, with 32 GiB of RAM, AMD® Ryzen 7 3700x 8-core processor × 16.
+
+The computations took more than 2 days of computation. The different parameters used are the following:
+
+```python
+experiment_params = {
+    "dna_sizes": [128, 256, 512, 1024], # size of DNA
+    "mutation_rates": [0.000001, 0.00001, 0.0001], # mutation rate
+    "world_sizes": [128, 256, 512, 1024], # size of the world
+}
+```
+
+![Results](img/programs_time_eval.png)
+
+The best program version is without doubt `aevol_5` which uses `Kokkos` on CPU only.
