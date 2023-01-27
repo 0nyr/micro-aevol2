@@ -1,8 +1,8 @@
-# Mini-Aevol : A mini-application based on the Aevol simulator
+# Micro-Aevol : A micro-version of the Aevol simulator.
 
-A reduced version (from a model and implementation point of view) of Aevol.
+A reduced version (from a model and implementation point of view) of Aevol (in silico experimental evolution platform).
 
-DO NOT USE IT TO SIMULATE BIOLOGICAL RESULTS ! See [http://www.aevol.fr](http://www.aevol.fr) for that !
+> WARN: DO NOT USE IT TO SIMULATE BIOLOGICAL RESULTS ! See [http://www.aevol.fr](http://www.aevol.fr) for that !
 
 It must be used only to test HPC optimization of the code (parallel, vector, porting to new architecture...).
 
@@ -101,7 +101,7 @@ This project is licensed under the GPLv2 License
 
 The speed execution of 5 different versions of `aevol_x` have been measure of a 64-bit Ubuntu 22.04 LTS, with 32 GiB of RAM, AMD® Ryzen 7 3700x 8-core processor × 16.
 
-The computations took more than 2 days of computation. The different parameters used are the following:
+The computations took several days. A system makes it possible to stop the computations and continue, so the computations were done over the course of 5 days, between Jan 23rd and Jan 27th 2023. The different parameters used are the following:
 
 ```python
 experiment_params = {
@@ -113,4 +113,4 @@ experiment_params = {
 
 ![Results](img/programs_time_eval.png)
 
-The best program version is without doubt `aevol_5` which uses `Kokkos` on CPU only.
+The best program version is without doubt `aevol_5` which uses `Kokkos` on CPU only. More detailed interpretations inside `src/compilation.ipynb`.
